@@ -367,6 +367,7 @@ const MOD = {}; const glowMats = []; const LMPICK = [];
 function addCol(ring, base, top) { let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } COL.rings.push(ring); COL.base.push(base); COL.top.push(top); COL.box.push([x0, x1, z0, z1]); }
 function rectRing(cx, cz, w, d, a) { const c = Math.cos(a), s = Math.sin(a); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(q => { const lx = q[0] * w / 2, lz = q[1] * d / 2; return [cx + lx * c - lz * s, cz + lx * s + lz * c]; }); }
 function circRing(cx, cz, r, n) { const o = []; for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; o.push([cx + Math.cos(t) * r, cz + Math.sin(t) * r]); } return o; }
+const LM_MESHES = []; function lmAdd(m) { world.add(m); LM_MESHES.push(m); return m; }
 function buildLandmarks() {
   for (const m of D.m) MOD[m.k] = m;
   const rot = a => -a;
@@ -377,7 +378,7 @@ function buildLandmarks() {
     add(new THREE.CylinderGeometry(17, 20, 9, 36), 232, '#4A6170', 2); add(new THREE.CylinderGeometry(11, 13, 6, 30), 239.5, '#D2D2CD');
     add(new THREE.CylinderGeometry(1.1, 3.6, 94, 12), 289, '#E6E6E2');
     for (let k = 0; k < 6; k++) add(new THREE.CylinderGeometry(2.6 - k * .25, 2.7 - k * .25, 2, 12), 252 + k * 12, k % 2 ? '#E6E6E2' : '#B8463A');
-    world.add(gb.mesh()); addCol(circRing(tx, tz, 12, 10), g0 - 1, g0 + 338); }
+    lmAdd(gb.mesh()); addCol(circRing(tx, tz, 12, 10), g0 - 1, g0 + 338); }
   if (MOD.lisboa_podium) { const m = MOD.lisboa_podium; const ring = decRing(m.ring); let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
     if (ringArea(ring) > 0) ring.reverse(); const K = 12, H = 48, y0 = m.y, lv = [];
     for (let k = 0; k <= K; k++) { const t = k / K; const s = Math.cos(t * Math.PI / 2) * .98 + .02, y = y0 + H * Math.sin(t * Math.PI / 2); lv.push(ring.map(p => [cx + (p[0] - cx) * s, y, cz + (p[1] - cz) * s])); }
@@ -385,7 +386,7 @@ function buildLandmarks() {
     for (let k = 0; k < K; k++) { let u = 0; for (let i = 0; i < ring.length; i++) { const j = (i + 1) % ring.length; const a = lv[k][i], b = lv[k][j], c = lv[k + 1][j], d = lv[k + 1][i]; const du = Math.hypot(b[0] - a[0], b[2] - a[2]);
       arr.push(...a, ...b, ...c, ...a, ...c, ...d); fxa.push(u, a[1] - y0, 2, u + du, b[1] - y0, 2, u + du, c[1] - y0, 2, u, a[1] - y0, 2, u + du, c[1] - y0, 2, u, d[1] - y0, 2); u += du; } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); geo.computeVertexNormals();
-    world.add(new GB().raw(arr, geo.attributes.normal.array, '#CDA650', fxa).mesh()); addCol(lv[2].map(p => [p[0], p[2]]), y0 - 1, y0 + H); }
+    lmAdd(new GB().raw(arr, geo.attributes.normal.array, '#CDA650', fxa).mesh()); addCol(lv[2].map(p => [p[0], p[2]]), y0 - 1, y0 + H); }
   if (MOD.lisboa_tower) { const m = MOD.lisboa_tower; const mtx = TRS(m.x, m.y, m.z, rot(m.a));
     const Wd = m.w / 2, Dd = m.d / 2, N = 48, lv = []; const hs = []; for (let h = 0; h <= 200; h += 6.25) hs.push(h); hs.push(206, 211);
     for (const h of hs) { const s = Math.pow(Math.min(h, 200) / 200, 1.5); let a = Wd * (0.74 + 0.26 * s), b = Dd * (0.62 + 0.72 * s); if (h > 200) { const k = (h - 200) / 11; a *= 1 - 0.25 * k; b *= 1 - 0.3 * k; }
@@ -401,7 +402,7 @@ function buildLandmarks() {
     for (let i = 0; i < N; i += 2) { const p = top2[i]; const ang = Math.atan2(p[2], p[0]); const L = 34 + 24 * Math.abs(Math.cos(ang));
       beam(gb, new THREE.Vector3(p[0] * 0.92, 198, p[2] * 0.92).applyMatrix4(mtx), new THREE.Vector3(p[0] * 1.18, 198 + L, p[2] * 1.25).applyMatrix4(mtx), 2.2, '#E0BE6C'); }
     gb.add(new THREE.CylinderGeometry(1.2, 5, 50, 10), TRS(m.x, m.y + 232, m.z), '#E0BE6C', 0, 0); gb.add(new THREE.SphereGeometry(7, 16, 10), TRS(m.x, m.y + 214, m.z), '#E8CC86', 0, 0);
-    world.add(gb.mesh()); addCol(rectRing(m.x, m.z, m.w * .75, m.d * .62, m.a), m.y - 1, m.y + 258); }
+    lmAdd(gb.mesh()); addCol(rectRing(m.x, m.z, m.w * .75, m.d * .62, m.a), m.y - 1, m.y + 258); }
   if (MOD.stpaul) { const m = MOD.stpaul; const ry = rot(m.a), s = m.s, Wd = Math.max(m.w, 22); const gb = new GB(); const st = '#A69E8F', dk = '#3B3732';
     const L = (x, y, z) => TRS(m.x, m.y, m.z, ry).multiply(TRS(x, y, z * s));
     gb.add(BOX1, L(0, 4.5, 0).multiply(TRS(0, 0, 0, 0, Wd, 9, 2.4)), st, 0, m.y); gb.add(BOX1, L(0, 12.3, 0).multiply(TRS(0, 0, 0, 0, Wd, 6.6, 2.2)), st, 0, m.y);
@@ -415,11 +416,11 @@ function buildLandmarks() {
     for (const x of [-Wd * .25, Wd * .25]) gb.add(BOX1, L(x, 12.3, 1.15).multiply(TRS(0, 0, 0, 0, 2, 3, .15)), dk, 0, m.y);
     gb.add(BOX1, L(0, 19, 1.05).multiply(TRS(0, 0, 0, 0, 2.2, 2.8, .15)), dk, 0, m.y);
     for (let i = 0; i < 16; i++) { const z = 2.6 + i * 2.05, topY = -m.drop * (i + 1) / 16; const hh = m.drop + 4 + topY; gb.add(BOX1, L(0, topY - hh / 2, z).multiply(TRS(0, 0, 0, 0, i % 6 === 5 ? 30 : 26, hh, 2.1)), '#B3AA98', 0, m.y); }
-    world.add(gb.mesh()); addCol(rectRing(m.x, m.z, Wd, 3, m.a), m.y - 1, m.y + 27); }
+    lmAdd(gb.mesh()); addCol(rectRing(m.x, m.z, Wd, 3, m.a), m.y - 1, m.y + 27); }
   if (MOD.guia) { const m = MOD.guia; const y0 = Math.max(m.y, groundAt(m.x, m.z) - 1.5); const gb = new GB(); const a = (geo, y, hex, st) => gb.add(geo, TRS(m.x, y0 + y, m.z), hex, st || 0, y0);
     a(new THREE.CylinderGeometry(4.6, 4.8, 1.2, 20), .6, '#D9D5CB'); a(new THREE.CylinderGeometry(2.7, 3.4, 11, 20), 6.7, '#F2F1EC', 3); a(new THREE.CylinderGeometry(3.9, 3.9, .5, 20), 12.4, '#E8E6DF');
     a(new THREE.CylinderGeometry(1.9, 1.9, 2.2, 16), 13.8, '#2E3F48', 2); a(new THREE.SphereGeometry(2.05, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), 14.9, '#8E3A2F');
-    world.add(gb.mesh()); addCol(circRing(m.x, m.z, 4.8, 10), y0 - 1, y0 + 17); }
+    lmAdd(gb.mesh()); addCol(circRing(m.x, m.z, 4.8, 10), y0 - 1, y0 + 17); }
   const eiffelMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .7, metalness: .25 }); glowMats.push([eiffelMat, 0x6a4614]);
   if (MOD.eiffel) { const m = MOD.eiffel; const mtx = TRS(m.x, m.y, m.z, rot(m.a)); const gb = new GB(); const col = '#7C6852';
     const half = Math.min(m.w, m.d) / 2; const prof = [[0, half], [14, half * .74], [28.8, half * .55], [43, half * .42], [57.6, half * .33], [80, half * .26], [100, half * .21], [120, half * .17], [138, half * .145], [150, half * .09], [158, half * .05]];
@@ -443,31 +444,31 @@ function buildLandmarks() {
     for (let sd = 0; sd < 4; sd++) { const ang = sd * Math.PI / 2; const pts = []; const R = half - 11, off = half - 6;
       for (let i = 0; i <= 16; i++) { const t = Math.PI * i / 16; pts.push(new THREE.Vector3(Math.cos(t) * R, Math.sin(t) * R * .95, 0)); }
       gb.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, .7, 6, false), mtx.clone().multiply(new THREE.Matrix4().makeRotationY(ang)).multiply(TRS(0, 0, off)), col, 0, m.y); }
-    world.add(gb.mesh(eiffelMat)); }
+    lmAdd(gb.mesh(eiffelMat)); }
   if (MOD.morpheus) { const m = MOD.morpheus; const mtx = TRS(m.x, m.y, m.z, rot(m.a)); const Wd = m.w, Dd = m.d, H = 155.2; const gb = new GB();
     const voids = [[-.2, .16, 24, 52], [.2, .15, 72, 100], [-.02, .14, 114, 136]]; const cuts = [0, H]; for (const v of voids) cuts.push(v[2], v[3]); cuts.sort((a, b) => a - b);
     for (let i = 0; i < cuts.length - 1; i++) { const y0 = cuts[i], y1 = cuts[i + 1]; if (y1 - y0 < 0.1) continue; const ym = (y0 + y1) / 2; const vd = voids.filter(v => ym > v[2] && ym < v[3]); let segs = [[-Wd / 2, Wd / 2]];
       for (const v of vd) { const a = v[0] * Wd - v[1] * Wd, b = v[0] * Wd + v[1] * Wd; segs = segs.flatMap(([s0, s1]) => { const out = []; if (a > s0) out.push([s0, Math.min(a, s1)]); if (b < s1) out.push([Math.max(b, s0), s1]); return out; }); }
       for (const [s0, s1] of segs) if (s1 - s0 > 1) gb.add(BOX1, mtx.clone().multiply(TRS((s0 + s1) / 2, ym, 0, 0, s1 - s0, y1 - y0, Dd)), '#4F5F69', 5, m.y, i * 13); }
-    world.add(gb.mesh()); addCol(rectRing(m.x, m.z, Wd, Dd, m.a), m.y - 1, m.y + H); }
+    lmAdd(gb.mesh()); addCol(rectRing(m.x, m.z, Wd, Dd, m.a), m.y - 1, m.y + H); }
   if (MOD.bigben) { const m = MOD.bigben; const mtx = TRS(m.x, m.y, m.z, rot(m.a)); const s = Math.min(m.w, m.d) * 0.92; const gb = new GB(); const A = (geo, x, y, z, hex, st) => gb.add(geo, mtx.clone().multiply(TRS(x, y, z)), hex, st || 0, m.y);
     A(new THREE.BoxGeometry(s, 55, s), 0, 27.5, 0, '#CDBE98', 3); A(new THREE.BoxGeometry(s + 1.8, 11, s + 1.8), 0, 60.5, 0, '#D3C49E');
     for (let k = 0; k < 4; k++) gb.add(new THREE.CircleGeometry(3.6, 24), mtx.clone().multiply(new THREE.Matrix4().makeRotationY(k * Math.PI / 2)).multiply(TRS(0, 60.5, (s + 1.8) / 2 + .05)), '#F3EFE2', 0, m.y);
     A(new THREE.BoxGeometry(s * .9, 8, s * .9), 0, 70, 0, '#BFAF8A', 3);
     gb.add(new THREE.ConeGeometry(s * .7, 19, 4), mtx.clone().multiply(new THREE.Matrix4().makeTranslation(0, 83.5, 0)).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 4)), '#4E5A56', 0, m.y);
-    world.add(gb.mesh()); addCol(rectRing(m.x, m.z, s + 1.8, s + 1.8, m.a), m.y - 1, m.y + 96); }
+    lmAdd(gb.mesh()); addCol(rectRing(m.x, m.z, s + 1.8, s + 1.8, m.a), m.y - 1, m.y + 96); }
   if (MOD.science) { const m = MOD.science; const gb = new GB();
     const ring = decRing(m.ring), hole = decRing(m.hole); const sh = new THREE.Shape(ring.map(p => new THREE.Vector2(p[0], -p[1]))); sh.holes.push(new THREE.Path(hole.map(p => new THREE.Vector2(p[0], -p[1]))));
     const pg = new THREE.ExtrudeGeometry(sh, { depth: 9, bevelEnabled: false }); pg.rotateX(-Math.PI / 2); gb.add(pg, TRS(0, m.y, 0), '#C5CBCF', 4, m.y);
     const [cx, cz, cr] = m.cone, [dx, dz, dr] = m.dome; let tx = cx - dx, tz = cz - dz; const tl = Math.hypot(tx, tz); tx /= tl; tz /= tl;
     const cg = new THREE.CylinderGeometry(cr * .36, cr * .95, 46, 48, 8, false); cg.translate(0, 23, 0); const pa = cg.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) + tx * y * .2); pa.setZ(i, pa.getZ(i) + tz * y * .2); }
     gb.add(cg, TRS(cx, m.y, cz), '#D2D7DA', 2, m.y); gb.add(new THREE.SphereGeometry(dr * .95, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), TRS(dx, m.y + 3, dz), '#DADFE2', 0, m.y);
-    world.add(gb.mesh()); addCol(ring, m.y - 1, m.y + 46); }
+    lmAdd(gb.mesh()); addCol(ring, m.y - 1, m.y + 46); }
   const reelMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .4, metalness: .5 }); glowMats.push([reelMat, 0x7a5512]);
   if (MOD.studio) { const m = MOD.studio; const gb = new GB();
     const ext = (enc, h, hex, st) => { const r = decRing(enc); const sh = new THREE.Shape(r.map(p => new THREE.Vector2(p[0], -p[1]))); const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: false }); g.rotateX(-Math.PI / 2); gb.add(g, TRS(0, m.y, 0), hex, st, m.y); return r; };
     const pr = ext(m.podium, 38, '#D3C29C', 3); for (const t of m.towers) addCol(ext(t, 154.5, '#DCCCA6', 1), m.y - 1, m.y + 154.5); addCol(pr, m.y - 1, m.y + 38);
-    world.add(gb.mesh());
+    lmAdd(gb.mesh());
     const g2 = new GB(); const tang = m.ra + Math.PI / 2; const tx = Math.cos(tang), tz = Math.sin(tang); const Hh = 72, Wd = 36, yc = m.y + 128; const pts = [];
     for (let i = 0; i < 64; i++) { const t = i / 64 * Math.PI * 2; const y = Hh / 2 * Math.sin(t), x = Wd * Math.sin(t) * Math.cos(t); pts.push(new THREE.Vector3(m.rx + tx * x, yc + y, m.rz + tz * x)); }
     const curve = new THREE.CatmullRomCurve3(pts, true); g2.add(new THREE.TubeGeometry(curve, 240, 2.1, 8, true), M4(), '#D7AE4D', 0, 0);
@@ -492,13 +493,39 @@ function colorTrees(P) { const cs = P.trees.map(C); const c = new THREE.Color();
 /* ---------- spatial indices: collision, bridges, road graph ---------- */
 const CS = 32; const colGrid = new Map(); const ckey = (i, j) => i * 100003 + j;
 let colSeen, colStamp = 1;
+function splitRoads() { // OSM ways often cross at interior vertices: split there so the road graph is connected
+  const occ = new Map(); const K = p => nkey(p[0], p[1]);
+  ROADS.forEach((rd, ri) => rd.pts.forEach((p, i) => { const k = K(p); let l = occ.get(k); if (!l) { l = []; occ.set(k, l); } l.push([ri, i, p[2]]); }));
+  const out = [];
+  for (let ri = 0; ri < ROADS.length; ri++) { const rd = ROADS[ri]; const cuts = [0];
+    for (let i = 1; i < rd.pts.length - 1; i++) { const l = occ.get(K(rd.pts[i])); if (l && l.some(o => (o[0] !== ri || Math.abs(o[1] - i) > 1) && Math.abs(o[2] - rd.pts[i][2]) < 2.5)) cuts.push(i); }
+    cuts.push(rd.pts.length - 1);
+    for (let c = 0; c < cuts.length - 1; c++) { const pts = rd.pts.slice(cuts[c], cuts[c + 1] + 1); if (pts.length < 2) continue; const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      if (cum[cum.length - 1] < .3) continue; out.push({ cls: rd.cls, br: rd.br, pts, cum, len: cum[cum.length - 1], hw: rd.hw }); } }
+  ROADS.length = 0; for (const r of out) ROADS.push(r);
+}
+function joinDeadEnds() { // connect dangling ends to a nearby node with a short link road
+  const deg = new Map(); for (const rd of ROADS) for (const k of [rd.ka, rd.kb]) deg.set(k, (deg.get(k) || 0) + 1);
+  const ends = []; ROADS.forEach(rd => { if (deg.get(rd.ka) === 1) ends.push([rd.ka, rd.pts[0], rd]); if (deg.get(rd.kb) === 1) ends.push([rd.kb, rd.pts[rd.pts.length - 1], rd]); });
+  const grid = new Map(); for (const rd of ROADS) for (const [k, p] of [[rd.ka, rd.pts[0]], [rd.kb, rd.pts[rd.pts.length - 1]]]) { const g = ckey(Math.floor(p[0] / 10), Math.floor(p[1] / 10)); let l = grid.get(g); if (!l) { l = []; grid.set(g, l); } l.push([k, p, rd]); }
+  const add = []; const seen = new Set();
+  for (const [k, p, rd] of ends) { let best = null, bd = 9 * 9; const gi = Math.floor(p[0] / 10), gj = Math.floor(p[1] / 10);
+    for (let i = gi - 1; i <= gi + 1; i++) for (let j = gj - 1; j <= gj + 1; j++) for (const o of grid.get(ckey(i, j)) || []) { if (o[0] === k || o[2] === rd || Math.abs(o[1][2] - p[2]) > 2.5) continue; const d = (o[1][0] - p[0]) ** 2 + (o[1][1] - p[1]) ** 2; if (d < bd) { bd = d; best = o; } }
+    if (best) { const key = [k, best[0]].sort().join('|'); if (seen.has(key)) continue; seen.add(key); const L = Math.sqrt(bd); add.push({ cls: Math.max(rd.cls, best[2].cls), br: rd.br && best[2].br, pts: [p, best[1]], cum: [0, L], len: L, hw: Math.min(rd.hw, best[2].hw), link: true, ka: k, kb: best[0] }); } }
+  for (const r of add) ROADS.push(r); return add.length; }
 function buildIndices() {
+  splitRoads();
   for (let id = 0; id < COL.rings.length; id++) { const b = COL.box[id]; for (let i = Math.floor(b[0] / CS); i <= Math.floor(b[1] / CS); i++) for (let j = Math.floor(b[2] / CS); j <= Math.floor(b[3] / CS); j++) { const k = ckey(i, j); let l = colGrid.get(k); if (!l) { l = []; colGrid.set(k, l); } l.push(id); } }
   colSeen = new Int32Array(COL.rings.length);
   for (const rd of ROADS) { if (!rd.br) continue; for (let k = 0; k < rd.pts.length - 1; k++) { const a = rd.pts[k], b = rd.pts[k + 1]; const sg = { x0: a[0], z0: a[1], y0: a[2], x1: b[0], z1: b[1], y1: b[2], hw: rd.hw + 0.6 };
     for (let i = Math.floor((Math.min(a[0], b[0]) - sg.hw) / BS); i <= Math.floor((Math.max(a[0], b[0]) + sg.hw) / BS); i++) for (let j = Math.floor((Math.min(a[1], b[1]) - sg.hw) / BS); j <= Math.floor((Math.max(a[1], b[1]) + sg.hw) / BS); j++) { const kk = ckey(i, j); let l = brGrid.get(kk); if (!l) { l = []; brGrid.set(kk, l); } l.push(sg); } } }
-  ROADS.forEach((rd, ri) => { const a = rd.pts[0], b = rd.pts[rd.pts.length - 1]; rd.ka = nkey(a[0], a[1]); rd.kb = nkey(b[0], b[1]);
+  ROADS.forEach(rd => { const a = rd.pts[0], b = rd.pts[rd.pts.length - 1]; rd.ka = nkey(a[0], a[1]); rd.kb = nkey(b[0], b[1]); });
+  joinDeadEnds();
+  ROADS.forEach((rd, ri) => { const a = rd.pts[0], b = rd.pts[rd.pts.length - 1];
     for (const [k, p, end] of [[rd.ka, a, 0], [rd.kb, b, 1]]) { let n = NODES.get(k); if (!n) { n = { x: p[0], z: p[1], links: [] }; NODES.set(k, n); } n.links.push({ ri, end }); } });
+  { // label connected components; the largest one gets id 0 (routing snaps to it)
+    const comps = []; for (const [k, n] of NODES) { if (n.comp != null) continue; const st = [k]; n.comp = -1; const mem = []; while (st.length) { const c = st.pop(); mem.push(c); for (const ln of NODES.get(c).links) { const rd = ROADS[ln.ri]; for (const nk of [rd.ka, rd.kb]) { const m = NODES.get(nk); if (m.comp == null) { m.comp = -1; st.push(nk); } } } } comps.push(mem); }
+    comps.sort((a, b) => b.length - a.length); comps.forEach((mem, i) => { for (const k of mem) NODES.get(k).comp = i; }); }
   for (const [k, n] of NODES) { const gk = ckey(Math.floor(n.x / 80), Math.floor(n.z / 80)); let l = NG.get(gk); if (!l) { l = []; NG.set(gk, l); } l.push(k); }
   ROADS.forEach((rd, ri) => { for (let k = 0; k < rd.pts.length; k += 3) { const p = rd.pts[k]; const gk = ckey(Math.floor(p[0] / 100), Math.floor(p[1] / 100)); let l = RG.get(gk); if (!l) { l = []; RG.set(gk, l); } l.push([ri, rd.cum[k]]); } });
 }
@@ -522,7 +549,7 @@ function surfaceAt(x, z, yRef) { let s = -50; if (isLand(x, z)) s = groundAt(x, 
   return s; }
 const nkey = (x, z) => Math.round(x / 2.5) + '_' + Math.round(z / 2.5);
 const NODES = new Map(); const NG = new Map(); const RG = new Map();
-function nearestNode(x, z) { let best = null, bd = 1e18; for (let r = 0; r < 6 && !best; r++) for (let i = Math.floor(x / 80) - r; i <= Math.floor(x / 80) + r; i++) for (let j = Math.floor(z / 80) - r; j <= Math.floor(z / 80) + r; j++) { const l = NG.get(ckey(i, j)); if (!l) continue; for (const k of l) { const n = NODES.get(k); const d = (n.x - x) ** 2 + (n.z - z) ** 2; if (d < bd) { bd = d; best = k; } } } return best; }
+function nearestNode(x, z, any) { let best = null, bd = 1e18; for (let r = 0; r < 30 && !best; r++) for (let i = Math.floor(x / 80) - r; i <= Math.floor(x / 80) + r; i++) for (let j = Math.floor(z / 80) - r; j <= Math.floor(z / 80) + r; j++) { const l = NG.get(ckey(i, j)); if (!l) continue; for (const k of l) { const n = NODES.get(k); if (!any && n.comp !== 0) continue; const d = (n.x - x) ** 2 + (n.z - z) ** 2; if (d < bd) { bd = d; best = k; } } } return best; }
 function roadPoint(rd, s) { let lo = 0, hi = rd.cum.length - 1; s = clamp(s, 0, rd.len); while (hi - lo > 1) { const m = (lo + hi) >> 1; if (rd.cum[m] <= s) lo = m; else hi = m; }
   const a = rd.pts[lo], b = rd.pts[hi]; const seg = (rd.cum[hi] - rd.cum[lo]) || 1; const t = (s - rd.cum[lo]) / seg; return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, (b[0] - a[0]) / seg, (b[1] - a[1]) / seg]; }
 function nearestRoad(x, z, opt) { opt = opt || {}; let best = null, bd = 1e18; for (let r = 0; r < 5; r++) { for (let i = Math.floor(x / 100) - r; i <= Math.floor(x / 100) + r; i++) for (let j = Math.floor(z / 100) - r; j <= Math.floor(z / 100) + r; j++) { const l = RG.get(ckey(i, j)); if (!l) continue;

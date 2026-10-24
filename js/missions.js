@@ -62,6 +62,16 @@ const MISSIONS = [
     steps: [{ k: 'timer', s: 200 }, { k: 'collect', list: ['wongchi', 'cheungkei', 'margaret'], r: 13, foot: true, text: '步行去三間老字號' }] },
   { id: 's8', cat: 'side', title: '科學館參觀', start: 'senado', giver: '學生', reward: 220, blurb: '一位學生要趕去澳門科學館參觀。',
     steps: [{ k: 'need', veh: 'any', text: '搵架車或電單車' }, { k: 'pass', from: 'senado', to: 'science', who: '學生', text: '送學生去科學館' }] },
+  { id: 's9', cat: 'side', title: '大炮台影相', start: 'stpaul', giver: '攝影學會', reward: 220, blurb: '攝影學會想要一張由大炮台望落半島嘅相。',
+    steps: [{ k: 'go', to: 'monte', r: 28, foot: true, text: '行上大炮台' }, { k: 'photo', at: 'monte', text: '喺大炮台影張相（按 P）' }] },
+  { id: 's10', cat: 'side', title: '三盞燈外賣', start: 'rotunda', giver: '緬甸餐廳', reward: 220, blurb: '三盞燈嘅緬甸雞絲撈檬要送去附近一棟住宅大廈。',
+    steps: [{ k: 'timer', s: 180 }, { k: 'go', to: () => nearestPlate(...toXZ(113.5482, 22.2088)), r: 16, text: '送緬甸雞絲撈檬去住宅大廈' }] },
+  { id: 's11', cat: 'side', title: '主教山祈福', start: 'senado', giver: '婆婆', reward: 240, blurb: '婆婆想去主教山小堂祈福，條山路好斜，車佢上去。',
+    steps: [{ k: 'need', veh: 'car', text: '搵架車' }, { k: 'pass', from: 'senado', to: 'penha', who: '婆婆', text: '接婆婆去主教山小堂' }, { k: 'say', who: '婆婆', text: '後生仔真係好人，主教山望落去個海幾靚呀。' }] },
+  { id: 's12', cat: 'side', title: '龍環葡韻婚紗相', start: 'cunha', giver: '一對新人', reward: 260, blurb: '一對新人想喺龍環葡韻嘅綠色葡式住宅前面影婚紗相。',
+    steps: [{ k: 'need', veh: 'car', text: '搵架車' }, { k: 'pass', from: 'cunha', to: 'taipahouses', who: '新人', text: '載新人去龍環葡韻' }, { k: 'photo', at: 'taipahouses', text: '幫新人影張婚紗相（按 P）' }] },
+  { id: 's13', cat: 'side', title: '譚公廟送貨', start: 'lordstow', giver: '路環街坊', reward: 220, blurb: '幫街坊送一箱香燭去路環譚公廟，路環巷仔窄，揸電單車最好。',
+    steps: [{ k: 'need', veh: 'scooter', text: '搵架電單車' }, { k: 'timer', s: 120 }, { k: 'go', to: 'tamkung', r: 22, veh: 'scooter', text: '揸電單車送香燭去譚公廟' }] },
   // ---------------- 競速 ----------------
   { id: 'r1', cat: 'race', title: '東望洋環迴賽', start: 'gate', reward: 300, blurb: '繞東望洋山一圈，路線參考格蘭披治賽道。', steps: [{ k: 'need', veh: 'any', text: '搵架車或電單車' }, { k: 'race', id: 'r1' }] },
   { id: 'r2', cat: 'race', title: '澳氹雙橋', start: 'start', reward: 300, blurb: '經嘉樂庇總督大橋去氹仔，再經友誼大橋返半島。', steps: [{ k: 'need', veh: 'any', text: '搵架車或電單車' }, { k: 'race', id: 'r2' }] },
@@ -95,7 +105,9 @@ function missionStartPos(m) { if (_msp.has(m.id)) return _msp.get(m.id); const p
   if (r) { const nx = r.dz, nz = -r.dx; const sd = ((p.x - r.x) * nx + (p.z - r.z) * nz) >= 0 ? 1 : -1; x = r.x + nx * (r.hw + 2.4) * sd + r.dx * k * 9; z = r.z + nz * (r.hw + 2.4) * sd + r.dz * k * 9; }
   const o = { x, z, y: surfaceAt(x, z, 99), label: p.label }; _msp.set(m.id, o); return o; }
 const MK_COLORS = { main: '#E0463A', side: '#3E8EDE', race: '#F08A24', job: '#2BB37A' };
+const EXTRA_PLACES = { monte: [22.1971, 113.5427, '大炮台'], rotunda: [22.2046, 113.5436, '三盞燈'], penha: [22.1865, 113.5355, '主教山小堂'], taipahouses: [22.1534, 113.5585, '龍環葡韻'], tamkung: [22.1153, 113.5510, '譚公廟'] };
 function fixPlaces() { // some OSM places sit inside a building or off the coast: move their road point to the nearest usable kerb
+  for (const k in EXTRA_PLACES) if (!W.places[k]) { const [la, lo, lb] = EXTRA_PLACES[k]; const [x, z] = toXZ(lo, la); const y = groundAt(x, z); W.places[k] = [x, z, y, lb, x, z, y]; }
   for (const k in W.places) { const p = W.places[k]; const ok = (x, z, y) => isLand(x, z) && !insideBuilding(x, z, y + 1) && !collide(x, z, 1.2, y, 1.6).hit;
     if (p[4] !== p[0] || p[5] !== p[1]) { if (ok(p[4], p[5], p[6])) continue; } else if (k === 'alto') continue;
     let best = null, bd = 1e18;
@@ -122,7 +134,7 @@ function startMission(m) {
   UI.toast(m.cat === 'race' ? '競速：' + m.title : '任務開始：' + m.title, m.blurb, 4); AUDIO.sfx('start');
 }
 function failMission(why) { const m = MS.cur; cleanupMission(); UI.toast('任務失敗', why + '。走返去標記可以再試。', 5); AUDIO.sfx('fail'); }
-function cleanupMission() { if (MS.lead) { hideInst(MS.lead); MS.lead.alive = false; MS.lead.reserved = false; MS.lead = null; } if (MS.npc) { world.remove(MS.npc.group); MS.npc = null; } MS.cur = null; MS.timer = null; MS.cps = null; MS.route = null; MS.cargo = null;
+function cleanupMission() { clearRacers(); if (MS.lead) { hideInst(MS.lead); MS.lead.alive = false; MS.lead.reserved = false; MS.lead = null; } if (MS.npc) { world.remove(MS.npc.group); MS.npc = null; } MS.cur = null; MS.timer = null; MS.cps = null; MS.route = null; MS.cargo = null;
   MS.ring.visible = false; MS.dest.visible = false; MS.pick.visible = false; UI.objective(null); UI.timer(null); UI.sayClose(); }
 function completeMission() { const m = MS.cur; const first = !save.done[m.id]; save.done[m.id] = true; const pay = first ? m.reward : Math.round(m.reward * .3); addMoney(pay); persist(); cleanupMission();
   UI.big(m.cat === 'main' ? '任務完成' : m.cat === 'race' ? '完成比賽' : '支線完成', m.title + ' · MOP +' + pay); AUDIO.sfx('done');
@@ -146,9 +158,39 @@ function spawnNPC(p) { if (MS.npc) world.remove(MS.npc.group); const def = CHARS
   ch.group.position.set(x, surfaceAt(x, z, 99) - .02, z); ch.group.rotation.y = Math.random() * 6; world.add(ch.group); MS.npc = ch; }
 /* races */
 function racePoints(id) { return RACES[id].map(c => { let p; if (typeof c === 'string') { const l = D.lm.find(a => a[0] === c); const r = roadPos(l[5], l[6], { bridge: true }); return { x: r.x, z: r.z, y: r.y }; } p = LL(c[0], c[1]); return snapRoad(p, { maxCls: 2 }); }); }
-function startRace(id) { MS.cps = racePoints(id); MS.data.raceId = id; MS.data.i = 1; MS.data.t = 0; MS.data.count = 3.5; MS.data.started = false;
+function startRace(id) { MS.cps = racePoints(id); setTimeout(() => buildRacers(), 0); MS.data.raceId = id; MS.data.i = 1; MS.data.t = 0; MS.data.count = 3.5; MS.data.started = false;
   const s = MS.cps[0]; if (player.mode === 'car') { const c = player.car; const n = MS.cps[1]; c.x = s.x; c.z = s.z; c.y = surfaceAt(s.x, s.z, s.y + 3); c.th = Math.atan2(n.x - s.x, n.z - s.z); c.vx = c.vz = 0; cam.yaw = c.th + Math.PI; } placeCP(); }
 function placeCP() { const c = MS.cps[MS.data.i], prev = MS.cps[MS.data.i - 1]; MS.ring.position.set(c.x, c.y + 9.5, c.z); MS.ring.rotation.set(0, Math.atan2(c.x - prev.x, c.z - prev.z), 0); MS.ring.visible = true; MS.routeT = 0; }
+/* AI opponents: drive the road route through the checkpoints, slow for corners, rubber-band to the player */
+const RACERS = { list: [], route: null, cum: null, cpS: null, vmax: null };
+const RACER_NAMES = ['陳伯個孫', '飛仔明', '阿 Ken'], RACER_COLS = ['#2D4F8C', '#F2C14E', '#2E7D5B'];
+function clearRacers() { for (const a of RACERS.list) world.remove(a.mesh); RACERS.list = []; RACERS.route = null; }
+function buildRacers() { clearRacers(); if (!MS.cps || !MS.cur) return; const cps = MS.cps; let route = [];
+  for (let i = 0; i < cps.length - 1; i++) { const r = astar(nearestNode(cps[i].x, cps[i].z), nearestNode(cps[i + 1].x, cps[i + 1].z)); if (!r) return; route = route.concat(i ? r.slice(1) : r); }
+  route = route.filter((p, i) => !i || Math.hypot(p[0] - route[i - 1][0], p[1] - route[i - 1][1]) > .5); if (route.length < 3) return;
+  const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
+  const type = player.mode === 'car' ? (player.car.type === 'scooter' ? 'scooter' : 'sport') : 'sport'; const top = CARS[type].maxV * (type === 'sport' ? .8 : .9);
+  const vmax = route.map((p, i) => { if (!i || i === route.length - 1) return top; const a = Math.atan2(p[0] - route[i - 1][0], p[1] - route[i - 1][1]), b = Math.atan2(route[i + 1][0] - p[0], route[i + 1][1] - p[1]); let d = Math.abs(Math.atan2(Math.sin(b - a), Math.cos(b - a))); return top * clamp(1 - d * .75, .3, 1); });
+  for (let i = vmax.length - 2; i >= 0; i--) vmax[i] = Math.min(vmax[i], Math.sqrt(vmax[i + 1] ** 2 + 2 * 7 * (cum[i + 1] - cum[i])));
+  const cpS = cps.map(c => { let best = 0, bd = 1e18; route.forEach((p, i) => { const d = (p[0] - c.x) ** 2 + (p[1] - c.z) ** 2; if (d < bd) { bd = d; best = cum[i]; } }); return best; });
+  Object.assign(RACERS, { route, cum, cpS, vmax, type });
+  for (let k = 0; k < 3; k++) { const mesh = makeCarMesh(type, RACER_COLS[k]); world.add(mesh); RACERS.list.push({ mesh, s: -6 - k * 7, lane: [2.4, -2.4, 0][k], v: 0, skill: [.97, 1.0, .93][k], name: RACER_NAMES[k], done: false, y: player.y, th: 0 }); }
+  updateRacers(0, MS.data); }
+function routeAt(s) { const R = RACERS.route, cum = RACERS.cum; if (s <= 0) { const a = R[0], b = R[1]; const l = cum[1] || 1; return [a[0] + (b[0] - a[0]) / l * s, a[1] + (b[1] - a[1]) / l * s, (b[0] - a[0]) / l, (b[1] - a[1]) / l, 0]; }
+  let lo = 0, hi = cum.length - 1; s = Math.min(s, cum[hi]); while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] <= s) lo = m; else hi = m; } const a = R[lo], b = R[hi]; const l = (cum[hi] - cum[lo]) || 1; const t = (s - cum[lo]) / l;
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, (b[0] - a[0]) / l, (b[1] - a[1]) / l, lo]; }
+function playerS(r) { const k = Math.min(r.i, MS.cps.length - 1); return RACERS.cpS[k] - Math.hypot(MS.cps[k].x - player.x, MS.cps[k].z - player.z); }
+function racePlace(r) { if (!RACERS.list.length || !RACERS.route) return 1; const me = playerS(r); return 1 + RACERS.list.filter(a => a.done || a.s > me).length; }
+function updateRacers(dt, r) { if (!RACERS.route) return; const L = RACERS.cum[RACERS.cum.length - 1]; const me = playerS(r);
+  for (const a of RACERS.list) {
+    if (r.started && !a.done) { const p0 = routeAt(Math.max(0, a.s)); let tv = RACERS.vmax[Math.min(RACERS.vmax.length - 1, p0[4] + 1)] * a.skill;
+      const gap = a.s - me; if (gap > 120) tv *= .84; else if (gap < -120) tv *= 1.14;
+      for (const b of RACERS.list) if (b !== a && b.s > a.s && b.s - a.s < 9 && Math.abs(b.lane - a.lane) < 2) tv = Math.min(tv, b.v);
+      a.v += clamp(tv - a.v, -9 * dt, 6.5 * dt); a.s += a.v * dt; if (a.s >= L) { a.done = true; a.s = L; UI.toast(a.name + ' 衝線', '', 2); } }
+    else if (a.done) a.v = Math.max(0, a.v - 8 * dt);
+    const p = routeAt(a.s); const dx = p[2], dz = p[3]; const x = p[0] + dz * (2.6 + a.lane * .6), z = p[1] - dx * (2.6 + a.lane * .6);
+    a.y = surfaceAt(x, z, a.y + 2); const th = Math.atan2(dx, dz); let d = th - a.th; d = Math.atan2(Math.sin(d), Math.cos(d)); a.th += d * Math.min(1, dt * 8 || 1);
+    a.x = x; a.z = z; a.mesh.position.set(x, a.y, z); a.mesh.rotation.set(0, a.th, 0); } }
 /* follow */
 function startFollow(s) { const pts = s.path.map(k => resolve(k)); let route = []; for (let i = 0; i < pts.length - 1; i++) { const r = astar(nearestNode(pts[i].x, pts[i].z), nearestNode(pts[i + 1].x, pts[i + 1].z)); if (r) route = route.concat(r); }
   if (route.length < 2) { nextStep(); return; } const cum = [0]; for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
@@ -220,10 +262,13 @@ function updateMissions(dt) {
       UI.objective(m.title, s.text, d > 150 ? Math.round(d) + ' m' : player.mode !== 'foot' ? '先落車' : facing > .86 ? '好角度！按 P 影相' : '轉個方向對住' + (t.label || '目標')); }
     else if (s.k === 'waitTime') { const tm = GAME.time; if (tm >= s.from && tm <= s.to) { nextStep(); return; } UI.objective(m.title, s.text, '而家 ' + fmtClock(tm) + '（暫停選單可以跳過時間）'); }
     else if (s.k === 'race') { const r = MS.data;
+      updateRacers(dt, r);
       if (!r.started) { r.count -= dt; UI.bigCount(r.count > .5 ? Math.ceil(r.count - .5) : 'GO'); if (player.mode === 'car') { player.car.vx = player.car.vz = 0; } if (r.count <= 0) { r.started = true; UI.bigCount(null); AUDIO.sfx('go'); } else if (Math.abs(r.count - Math.round(r.count)) < dt) AUDIO.sfx('tick'); }
       else { r.t += dt; const cp = MS.cps[r.i]; const d = Math.hypot(cp.x - px, cp.z - pz); const best = save.best[r.raceId];
-        UI.objective(m.title, '穿過黃色圓環 · 檢查點 ' + r.i + ' / ' + (MS.cps.length - 1), '時間 ' + fmtT(r.t) + ' · ' + Math.round(d) + ' m' + (best ? ' · 最佳 ' + fmtT(best) : ''));
-        if (d < 14 && Math.abs(py - cp.y) < 14) { AUDIO.sfx('cp'); r.i++; if (r.i >= MS.cps.length) { const nb = !best || r.t < best; if (nb) save.best[r.raceId] = r.t; UI.toast(nb ? '新紀錄！' : '完成', '用時 ' + fmtT(r.t), 5); MS.ring.visible = false; nextStep(); } else placeCP(); } } }
+        const pl = racePlace(r); UI.objective(m.title, '穿過黃色圓環 · 檢查點 ' + r.i + ' / ' + (MS.cps.length - 1) + (RACERS.list.length ? ' · 第 ' + pl + ' / ' + (RACERS.list.length + 1) + ' 名' : ''), '時間 ' + fmtT(r.t) + ' · ' + Math.round(d) + ' m' + (best ? ' · 最佳 ' + fmtT(best) : ''));
+        if (d < 14 && Math.abs(py - cp.y) < 14) { AUDIO.sfx('cp'); r.i++; if (r.i >= MS.cps.length) { const place = 1 + RACERS.list.filter(a => a.done).length; const nb = !best || r.t < best; if (nb) save.best[r.raceId] = r.t; MS.ring.visible = false;
+          if (m.cat === 'race' && place > 1) { failMission('第 ' + place + ' 名衝線（' + fmtT(r.t) + '），要攞第一先算贏'); return; }
+          UI.toast((place === 1 ? '第一名！' : '第 ' + place + ' 名') + (nb ? ' · 新紀錄' : ''), '用時 ' + fmtT(r.t), 5); nextStep(); } else placeCP(); } } }
     else if (s.k === 'follow') { const r = MS.data; const lead = MS.lead; const L = r.cum[r.cum.length - 1]; const dl = Math.hypot(lead.x - px, lead.z - pz);
       const tv = dl > 90 ? 5 : dl < 25 ? 13 : 10; r.v += (tv - r.v) * Math.min(1, dt * 1.5); r.s = Math.min(L, r.s + r.v * dt); const p = followPoint(r.s); const ll = Math.hypot(p[2], p[3]) || 1; const dx = p[2] / ll, dz = p[3] / ll;
       lead.x = p[0] + dz * 2.2; lead.z = p[1] - dx * 2.2; lead.y = surfaceAt(lead.x, lead.z, 99); lead.th = Math.atan2(dx, dz); placeInst(lead); tPools.taxi.body.instanceMatrix.needsUpdate = true; tPools.taxi.trim.instanceMatrix.needsUpdate = true;

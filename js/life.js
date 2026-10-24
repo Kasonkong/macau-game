@@ -111,3 +111,45 @@ const AMB = { hum: null, birds: 0,
   bird() { const ac = AUDIO.ac, t = ac.currentTime; const f0 = 2400 + Math.random() * 1600; for (let i = 0; i < 3; i++) { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; const tt = t + i * .14; o.frequency.setValueAtTime(f0, tt); o.frequency.exponentialRampToValueAtTime(f0 * 1.35, tt + .08); g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(.025, tt + .02); g.gain.exponentialRampToValueAtTime(.0001, tt + .1); o.connect(g).connect(AUDIO.master); o.start(tt); o.stop(tt + .12); } },
   thunder() { const ac = AUDIO.ac; if (!ac) return; const t = ac.currentTime; const s = ac.createBufferSource(); s.buffer = AUDIO.noise; s.loop = true; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(260, t); f.frequency.exponentialRampToValueAtTime(70, t + 3); const g = ac.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.5, t + .08); g.gain.exponentialRampToValueAtTime(.001, t + 3.2); s.connect(f).connect(g).connect(AUDIO.master); s.start(t); s.stop(t + 3.3); }
 };
+
+/* ---------- v2.3: mission givers at their markers, landmark night lighting, aviation lights ---------- */
+const GIVERS = { pool: [], t: 0, labels: new Map() };
+const GIVER_LOOK = { '陳伯': { skin: '#D2A47F', hair: '#C9C7C2', style: 'short', shirt: '#EDEAE3', pants: '#4A4A4A', shoes: '#2B2B2B' }, '陳伯個孫': { skin: '#E0B48C', hair: '#1B1816', style: 'cap', shirt: '#C62828', pants: '#2A3038', shoes: '#F4F4F2' }, '婆婆': { skin: '#D9B08D', hair: '#B9B7B2', style: 'bun', shirt: '#8E6CC9', pants: '#3a3a3a', shoes: '#2B2B2B' } };
+function giverDef(m) { const n = m.giver || (m.cat === 'race' ? '賽車手' : '街坊'); if (GIVER_LOOK[n]) return GIVER_LOOK[n]; const h = k => hsh(m.id.charCodeAt(1) * 31 + m.id.length * 7 + k);
+  const base = CHARS[(h(1) * CHARS.length) | 0]; return Object.assign({}, base, { style: m.cat === 'race' ? 'cap' : ['short', 'long', 'bun', 'cap'][(h(2) * 4) | 0], shirt: SHIRTS[(h(3) * SHIRTS.length) | 0] }); }
+function giverLabel(text, col) { const key = text + col; if (GIVERS.labels.has(key)) return GIVERS.labels.get(key);
+  const c = document.createElement('canvas'); const x = c.getContext('2d'); x.font = '700 40px ' + SIGN_FONT; const w = Math.ceil(x.measureText(text).width) + 36; c.width = w; c.height = 60;
+  x.font = '700 40px ' + SIGN_FONT; x.fillStyle = 'rgba(12,20,25,.82)'; x.beginPath(); if (x.roundRect) x.roundRect(0, 0, w, 60, 14); else x.rect(0, 0, w, 60); x.fill(); x.fillStyle = col; x.fillRect(0, 54, w, 6); x.fillStyle = '#fff'; x.textBaseline = 'middle'; x.fillText(text, 18, 29);
+  const t = new THREE.CanvasTexture(c); const r = { t, aspect: w / 60 }; GIVERS.labels.set(key, r); return r; }
+LIFE.buildMore = function () {
+  for (let k = 0; k < 4; k++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: true })); sp.visible = false; world.add(sp); GIVERS.pool.push({ ch: null, sp, m: null }); }
+  // landmark night lighting: an additive overlay sharing each landmark's geometry
+  const near = (x, z) => { let best = null, bd = 1e18; for (const m of LM_MESHES) { const g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); const c = g.boundingSphere.center; const d = (c.x - x) ** 2 + (c.z - z) ** 2; if (d < bd) { bd = d; best = m; } } return bd < 140 * 140 ? best : null; };
+  const cen = r => { const q = decRing(r); let x = 0, z = 0; for (const p of q) { x += p[0]; z += p[1]; } return [x / q.length, z / q.length]; };
+  const specs = []; if (MOD.lisboa_tower) specs.push([MOD.lisboa_tower.x, MOD.lisboa_tower.z, '#FFC24A', .5]); if (MOD.lisboa_podium) specs.push([...cen(MOD.lisboa_podium.ring), '#FF9F3A', .45]);
+  if (D.tower) specs.push([D.tower[0], D.tower[1], '#A8C8FF', .22]); if (MOD.morpheus) specs.push([MOD.morpheus.x, MOD.morpheus.z, '#DDE6F0', .16]); if (MOD.bigben) specs.push([MOD.bigben.x, MOD.bigben.z, '#FFD9A0', .3]);
+  if (MOD.studio && MOD.studio.towers && MOD.studio.towers[0]) specs.push([...cen(MOD.studio.towers[0]), '#FFD27A', .3]);
+  LIFE.glows = []; const used = new Set();
+  for (const [x, z, col, k] of specs) { const m = near(x, z); if (!m || used.has(m)) continue; used.add(m); const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    const o = new THREE.Mesh(m.geometry, mat); o.position.copy(m.position); o.rotation.copy(m.rotation); o.scale.copy(m.scale); o.visible = false; world.add(o); LIFE.glows.push([o, k]); }
+  // red aviation lights on the tallest buildings
+  const tops = BINFO.filter(b => b.top - b.base > 105).map(b => [b.cx, b.top + .6, b.cz]); if (D.tower) tops.push([D.tower[0], groundAt(D.tower[0], D.tower[1]) + 338.5, D.tower[1]]); if (MOD.lisboa_tower) tops.push([MOD.lisboa_tower.x, MOD.lisboa_tower.y + 258, MOD.lisboa_tower.z]);
+  const am = new THREE.InstancedMesh(new THREE.SphereGeometry(.9, 8, 6), new THREE.MeshBasicMaterial({ color: 0xff2a1a }), Math.max(1, tops.length)); const o = new THREE.Object3D();
+  tops.forEach((p, i) => { o.position.set(p[0], p[1], p[2]); o.updateMatrix(); am.setMatrixAt(i, o.matrix); }); am.count = tops.length; am.frustumCulled = false; world.add(am); LIFE.avi = am;
+};
+LIFE.updateMore = function (dt) {
+  const n = clamp((ENV.night - .3) / .5, 0, 1);
+  for (const [o, k] of LIFE.glows || []) { o.visible = n > 0; o.material.opacity = n * k; }
+  if (LIFE.avi) LIFE.avi.visible = n > 0 && (EX.time.value % 1.6) < .8;
+  // givers
+  GIVERS.t -= dt; if (GIVERS.t <= 0) { GIVERS.t = .5; const want = (MS.cur || MS.job) ? [] : MS.markers.filter(mk => missionAvailable(mk.m)).map(mk => ({ mk, d: Math.hypot(mk.p.x - player.x, mk.p.z - player.z) })).filter(o => o.d < 150).sort((a, b) => a.d - b.d).slice(0, GIVERS.pool.length).map(o => o.mk);
+    for (const g of GIVERS.pool) if (g.m && !want.includes(g.m)) { if (g.ch) world.remove(g.ch.group); g.ch = null; g.m = null; g.sp.visible = false; }
+    for (const mk of want) { if (GIVERS.pool.some(g => g.m === mk)) continue; const g = GIVERS.pool.find(q => !q.m); if (!g) break; g.m = mk; const m = mk.m;
+      g.ch = makeCharacter(giverDef(m), null); const r = roadPos(mk.p.x, mk.p.z, { noBridge: true }); let x = mk.p.x, z = mk.p.z;
+      if (r) { const nx = r.dz, nz = -r.dx; const sd = ((mk.p.x - r.x) * nx + (mk.p.z - r.z) * nz) >= 0 ? 1 : -1; x += nx * sd * 1.5 + r.dx * 1.8; z += nz * sd * 1.5 + r.dz * 1.8; }
+      g.x = x; g.z = z; g.ch.group.position.set(x, surfaceAt(x, z, 99) - .02, z); world.add(g.ch.group);
+      const lb = giverLabel(m.giver || (m.cat === 'race' ? '賽車手' : '街坊'), MK_COLORS[m.cat]); g.sp.material.map = lb.t; g.sp.material.needsUpdate = true; g.sp.scale.set(.45 * lb.aspect, .45, 1); g.sp.position.set(x, g.ch.group.position.y + 2.3, z); g.sp.visible = true; } }
+  for (const g of GIVERS.pool) { if (!g.ch) continue; const d = Math.hypot(player.x - g.x, player.z - g.z); const ch = g.ch;
+    if (d < 25) ch.group.rotation.y += (Math.atan2(Math.sin(Math.atan2(player.x - g.x, player.z - g.z) - ch.group.rotation.y), Math.cos(Math.atan2(player.x - g.x, player.z - g.z) - ch.group.rotation.y))) * Math.min(1, dt * 4);
+    ch.armR.rotation.x = d < 9 ? -2.7 + Math.sin(EX.time.value * 7) * .35 : 0; ch.armR.rotation.z = d < 9 ? .25 : 0; ch.torso.position.y = 1.23 + Math.sin(EX.time.value * 2 + g.x) * .01; }
+};

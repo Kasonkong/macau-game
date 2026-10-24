@@ -20,7 +20,7 @@ async function boot() {
     { const raw = atob(G.data); for (let i = 0; i < GW * GH; i++) { const v = raw.charCodeAt(2 * i) | (raw.charCodeAt(2 * i + 1) << 8); HG[i] = v === 65535 ? -1 : v / 10; } }
     const steps = [['地形同海岸線', buildLand], ['道路同行人路', buildRoads], ['立面材質', makeFacadeMat], ['建築物同舖面', buildBuildings], ['重點地標', buildLandmarks], ['樹木', buildTrees], ['碰撞同路網', buildIndices],
       ['街道同堂區', buildPlaces], ['地圖', buildMapCanvas], ['真實商舖', buildShops], ['招牌同大廈名牌', buildSigns], ['交通燈', buildLights], ['巴士站', buildStops], ['路燈', buildLamps], ['輕軌', buildLRT], ['葡撻', buildTarts],
-      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['街景細節', LIFE.build], ['角色', buildPlayer], ['任務', buildMarkers]];
+      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['街景細節', LIFE.build], ['地標燈光同任務角色', LIFE.buildMore], ['角色', buildPlayer], ['任務', buildMarkers]];
     for (let i = 0; i < steps.length; i++) { progress('建造' + steps[i][0], .52 + .46 * i / steps.length); await tick0(); await steps[i][1](); }
     ENV.weather = '晴'; ENV.nextWeather = 300 + Math.random() * 300; player.stamina = save.stamina != null ? save.stamina : 100;
     spawnHome(); spawnParkedAround(player.x, player.z, 26);
@@ -162,6 +162,7 @@ function updateCar(dt, inp) {
   let hit = false, hnx = 0, hnz = 0; const hr = c.wid / 2 + .1;
   for (const k of [-1, 0, 1]) { const ox = nfx * k * (c.len / 2 - hr), oz = nfz * k * (c.len / 2 - hr); const r = collide(nx + ox, nz + oz, hr, c.y, 1.6); if (r.hit) { nx += r.x - (nx + ox); nz += r.z - (nz + oz); hit = true; hnx = r.nx; hnz = r.nz; } }
   for (const t of TRAFFIC) { if (!t.alive && !t.reserved) continue; const dx = nx - t.x, dz = nz - t.z, d2 = dx * dx + dz * dz, rr = (c.len + t.len) * .3; if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); nx = t.x + dx / d * rr; nz = t.z + dz / d * rr; hit = true; hnx = dx / d; hnz = dz / d; t.v = 0; t.wait = 2; } }
+  for (const a of RACERS.list) { const dx = nx - a.x, dz = nz - a.z, d2 = dx * dx + dz * dz, rr = c.len * .6; if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); nx = a.x + dx / d * rr; nz = a.z + dz / d * rr; hit = true; hnx = dx / d; hnz = dz / d; a.v *= .7; } }
   for (const p of PARKED) { const dx = nx - p.x, dz = nz - p.z, d2 = dx * dx + dz * dz, rr = (c.len + CARS[p.type].len) * (p.type === 'scooter' ? .22 : .3); if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); nx = p.x + dx / d * rr; nz = p.z + dz / d * rr; hit = true; hnx = dx / d; hnz = dz / d; } }
   if (hit) { const vn = c.vx * hnx + c.vz * hnz; if (vn < 0) { c.vx -= vn * hnx * 1.35; c.vz -= vn * hnz * 1.35; } c.vx *= .75; c.vz *= .75; const imp = -vn;
     if (imp > 7 && performance.now() - lastHit > 900) { lastHit = performance.now(); AUDIO.sfx('thump'); const cost = Math.round(imp * 3); addMoney(-cost); UI.toast('撞車！', '維修費 MOP ' + cost + '。', 2); } }
@@ -232,7 +233,7 @@ function frame(now) {
       const c = player.car; AUDIO.update(dt, player.mode === 'car' && !frozen, c ? c.vf || 0 : 0, c ? c.thr || 0 : 0, c ? Math.abs(c.vl || 0) : 0, c && c.type === 'sport');
       persistT -= dt; if (persistT <= 0) { persistT = 5; save.time = GAME.time; save.stamina = Math.round(player.stamina); persist(); }
     } else { const t = now / 1000; camTgt.set(player.x, player.y + 30, player.z); camera.position.set(player.x + Math.sin(t * .05) * 380, player.y + 170, player.z + Math.cos(t * .05) * 380); camera.lookAt(camTgt); setNear(2); followSun(camTgt); updateLights(dt); updateLRT(dt); updateTarts(t); }
-    updateEnv(dt, GAME.time, camTgt); { const fr = GAME.started && (UI.dlgOpen || UI.mapOpen || UI.phoneOpen); EX.update(dt, fr); LIFE.update(dt, fr); } updateSigns(player.x, player.z);
+    updateEnv(dt, GAME.time, camTgt); { const fr = GAME.started && (UI.dlgOpen || UI.mapOpen || UI.phoneOpen); EX.update(dt, fr); LIFE.update(dt, fr); if (W && LIFE.glows) LIFE.updateMore(dt); } updateSigns(player.x, player.z);
     renderer.render(scene, camera); if (GAME.frame > 2) signsAfterFirstFrame();
     if (GAME.shot) { GAME.shot = false; capturePhoto(); }
   } else if (renderer) renderer.render(scene, camera);
