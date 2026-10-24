@@ -63,6 +63,7 @@ kbd{font-family:var(--f-mono);font-size:12px;background:rgb(255 255 255 / .12);b
 #fps{position:fixed;left:50%;bottom:calc(8px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:11px;padding:3px 8px;pointer-events:none}
 #bubble{position:fixed;transform:translate(-50%,-100%);background:#FBFAF6;color:#1B1D1F;font-size:13.5px;font-weight:600;padding:6px 11px;border-radius:12px;white-space:nowrap;pointer-events:none;box-shadow:0 3px 12px rgb(0 0 0 / .35)}
 #bubble::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#FBFAF6}
+#lockhint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:10px 16px;font-size:14px;pointer-events:none}
 #timer{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:6px 14px;font-family:var(--f-mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
 #timer.low{color:var(--warn)}
 #toast{position:fixed;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:10px 16px;text-align:center;max-width:min(460px,calc(100% - 24px))}
@@ -209,6 +210,7 @@ body.touch #tl{max-width:calc(100% - 200px)}
   <div id="prompt" class="glass" hidden></div>
   <div id="fps" class="chip glass" hidden></div>
   <div id="bubble" hidden></div>
+  <div id="lockhint" class="glass" hidden>點擊畫面，用滑鼠控制鏡頭</div>
   <div id="timer" class="glass" hidden></div>
   <div id="toast" class="glass" hidden><div class="tt"></div><div class="ts"></div></div>
   <div id="big" hidden><div class="bt"></div><div class="bs"></div></div>

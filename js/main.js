@@ -30,12 +30,20 @@ async function boot() {
   } catch (e) { console.error(e); fail('載入失敗：' + (e && e.message ? e.message : e) + '。請重新整理頁面再試。'); }
 }
 function startGame() {
-  if (GAME.started) return; GAME.started = true; AUDIO.init(); $('start').hidden = true; $('hud').hidden = false; applyControls();
+  if (GAME.started) return; GAME.started = true; AUDIO.init(); $('start').hidden = true; $('hud').hidden = false; applyControls(); requestLock();
   cam.yaw = player.th + Math.PI; camera.position.set(player.x + Math.sin(cam.yaw) * 6, player.y + 3, player.z + Math.cos(cam.yaw) * 6);
   if (!save.intro) { save.intro = true; persist(); setTimeout(() => UI.say('陳伯', '後生仔，終於到咗！我喺你身邊，行過嚟紅色「主」標記度，' + (save.ctl === 'touch' ? '按「互動」' : '按 E') + '同我傾吓。', null), 600); }
   else UI.toast('歡迎返嚟濠江', '完成度 ' + completion().pct + '% · 打開手機（' + (save.ctl === 'touch' ? '「手機」' : 'T') + '）睇任務同打工。', 5);
 }
-function applyControls() { const t = save.ctl === 'touch'; document.body.classList.toggle('touch', t); $('touch').hidden = !t || !GAME.started; }
+function applyControls() { const t = save.ctl === 'touch'; document.body.classList.toggle('touch', t); $('touch').hidden = !t || !GAME.started; if (t) releaseLock(); updateLockHint(); }
+/* ---------- mouse look (pointer lock) for keyboard players ---------- */
+const lockWanted = () => save.ctl === 'keys' && (save.mouseLook || 'lock') === 'lock' && GAME.started && !UI.dlgOpen && !UI.mapOpen && !UI.phoneOpen;
+const isLocked = () => !!renderer && document.pointerLockElement === renderer.domElement;
+function requestLock() { if (!renderer || !lockWanted() || isLocked() || !renderer.domElement.requestPointerLock) return; try { const r = renderer.domElement.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+function releaseLock() { if (isLocked()) { GAME.selfUnlock = true; document.exitPointerLock(); } }
+function updateLockHint() { const el = $('lockhint'); if (el) el.hidden = isLocked() || !lockWanted() || isTouchDevice; }
+document.addEventListener('pointerlockchange', () => { const locked = isLocked(); if (!locked && GAME.started && !GAME.selfUnlock && lockWanted()) { GAME.unlockT = performance.now(); UI.pause(); } GAME.selfUnlock = false; keys.clear(); updateLockHint(); });
+document.addEventListener('mousemove', e => { if (!isLocked()) return; const k = save.mouseSens || 1; cam.yaw -= e.movementX * .0024 * k; cam.pitch = clamp(cam.pitch + e.movementY * .0018 * k, -.15, 1.3); cam.auto = 1.6; });
 
 /* ---------- spawning & teleport ---------- */
 function sidewalkNear(x, z, extra) { const r = roadPos(x, z, { noBridge: true }); if (!r) return { x, z, th: 0 }; const nx = r.dz, nz = -r.dx; const sd = ((x - r.x) * nx + (z - r.z) * nz) >= 0 ? 1 : -1; return { x: r.x + nx * (r.hw + (extra || 2.2)) * sd, z: r.z + nz * (r.hw + (extra || 2.2)) * sd, th: Math.atan2(-nx * sd, -nz * sd) }; }
@@ -61,7 +69,7 @@ addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 function pressKey(k) {
   if (!GAME.started) return;
-  if (k === 'Escape') { if (UI.dlgOpen) UI.closeDlg(); else if (UI.mapOpen) UI.closeMap(); else if (UI.phoneOpen) UI.phone(false); else if (GAME.photo) setPhoto(false); else UI.pause(); return; }
+  if (k === 'Escape') { if (performance.now() - (GAME.unlockT || 0) < 450) return; if (UI.dlgOpen) UI.closeDlg(); else if (UI.mapOpen) UI.closeMap(); else if (UI.phoneOpen) UI.phone(false); else if (GAME.photo) setPhoto(false); else UI.pause(); return; }
   if (UI.dlgOpen) return;
   if (k === 'KeyM') { if (UI.mapOpen) UI.closeMap(); else { UI.phone(false); UI.openMap(); } return; }
   if (k === 'KeyT') { if (UI.mapOpen) UI.closeMap(); UI.phone(); return; }
@@ -90,7 +98,8 @@ function toggleCar() {
 }
 const cv = () => renderer.domElement; let drag = null;
 function bindPointer() { const el = cv();
-  el.addEventListener('pointerdown', e => { if (!GAME.started) return; drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('click', () => { if (isLocked()) { if (UI.sayOpen) UI.sayNext(); return; } requestLock(); });
+  el.addEventListener('pointerdown', e => { if (!GAME.started || isLocked()) return; if (e.pointerType === 'mouse' && lockWanted()) return; drag = { id: e.pointerId, x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
   el.addEventListener('pointermove', e => { if (!drag || drag.id !== e.pointerId) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; cam.yaw -= dx * .006; cam.pitch = clamp(cam.pitch + dy * .004, -.15, 1.3); cam.auto = 1.8; });
   const end = e => { if (drag && drag.id === e.pointerId) drag = null; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   el.addEventListener('wheel', e => { if (!GAME.started) return; e.preventDefault(); if (player.mode === 'car') cam.distCar = clamp(cam.distCar * (1 + e.deltaY * .001), 6, 32); else cam.dist = clamp(cam.dist * (1 + e.deltaY * .001), 2.4, 16); }, { passive: false });
@@ -229,7 +238,7 @@ function frame(now) {
         updatePrompt(dt);
       }
       updateCamera(dt); followSun(camTgt);
-      UI.tick(dt); UI.hud(dt); if (GAME.frame % 3 === 0) UI.drawMini(); if (UI.mapOpen && GAME.frame % 20 === 0) UI.drawBig();
+      UI.tick(dt); UI.hud(dt); if (GAME.frame % 10 === 0) updateLockHint(); if (GAME.frame % 3 === 0) UI.drawMini(); if (UI.mapOpen && GAME.frame % 20 === 0) UI.drawBig();
       const c = player.car; AUDIO.update(dt, player.mode === 'car' && !frozen, c ? c.vf || 0 : 0, c ? c.thr || 0 : 0, c ? Math.abs(c.vl || 0) : 0, c && c.type === 'sport');
       persistT -= dt; if (persistT <= 0) { persistT = 5; save.time = GAME.time; save.stamina = Math.round(player.stamina); persist(); }
     } else { const t = now / 1000; camTgt.set(player.x, player.y + 30, player.z); camera.position.set(player.x + Math.sin(t * .05) * 380, player.y + 170, player.z + Math.cos(t * .05) * 380); camera.lookAt(camTgt); setNear(2); followSun(camTgt); updateLights(dt); updateLRT(dt); updateTarts(t); }

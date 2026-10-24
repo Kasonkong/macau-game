@@ -82,9 +82,9 @@ const UI = {
     const st = AUDIO.STATIONS[AUDIO.station]; const rv = inCar && AUDIO.ac && AUDIO.station > 0; $('radio').hidden = !rv; if (rv) $('radio').innerHTML = '♪ <b>' + esc(st.name) + '</b> ' + st.fm;
   },
   /* ---------- dialogs ---------- */
-  openDlg(html, kind) { const sh = $('dlg-sheet'); sh.innerHTML = html; sh.classList.add('arming'); clearTimeout(this._arm); this._arm = setTimeout(() => sh.classList.remove('arming'), 380); $('dlg').hidden = false; this.dlgOpen = true; this.dlgKind = kind || 'dlg'; keys.clear();
+  openDlg(html, kind) { releaseLock(); const sh = $('dlg-sheet'); sh.innerHTML = html; sh.classList.add('arming'); clearTimeout(this._arm); this._arm = setTimeout(() => sh.classList.remove('arming'), 380); $('dlg').hidden = false; this.dlgOpen = true; this.dlgKind = kind || 'dlg'; keys.clear();
     $('dlg-sheet').querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => this.closeDlg())); const f = $('dlg-sheet').querySelector('.btn.primary, button'); if (f && !isTouchDevice) f.focus({ preventScroll: true }); return $('dlg-sheet'); },
-  closeDlg() { $('dlg').hidden = true; this.dlgOpen = false; this.dlgKind = null; keys.clear(); },
+  closeDlg() { $('dlg').hidden = true; this.dlgOpen = false; this.dlgKind = null; keys.clear(); requestLock(); },
   missionCard(m) {
     const best = m.cat === 'race' && save.best[m.id] ? '<span class="eb" style="color:var(--ink-soft)">最佳 ' + fmtT(save.best[m.id]) + '</span>' : '';
     const again = save.done[m.id] ? '（重玩獎勵 30%）' : '';
@@ -147,6 +147,8 @@ const UI = {
     const seg = (id, opts, cur) => '<div class="seg" id="' + id + '">' + opts.map(([v, t]) => '<button type="button" data-v="' + v + '" aria-pressed="' + (v === cur) + '">' + t + '</button>').join('') + '</div>';
     const el = this.openDlg('<span class="eb" style="color:var(--accent)">設定</span><h2>設定</h2><div class="set">' +
       '<span>操作方式</span>' + seg('s-ctl', [['keys', '鍵盤'], ['touch', '屏幕按鈕']], save.ctl) +
+      '<span>滑鼠鏡頭</span>' + seg('s-ml', [['lock', '直接郁滑鼠'], ['drag', '按住左鍵拖動']], save.mouseLook || 'lock') +
+      '<span>滑鼠靈敏度</span>' + seg('s-ms', [['.6', '低'], ['1', '中'], ['1.6', '高']], String(save.mouseSens || 1)) +
       '<span>畫質</span>' + seg('s-q', [['high', '高'], ['mid', '中'], ['low', '低']], save.quality) +
       '<span>聲音</span>' + seg('s-snd', [['1', '開'], ['0', '關']], save.sound ? '1' : '0') +
       '<span>交通違例</span>' + seg('s-fine', [['1', '開'], ['0', '關']], save.fines ? '1' : '0') +
@@ -157,6 +159,8 @@ const UI = {
       '</div><p class="note" id="s-note"></p><div class="row"><button class="btn primary" type="button" data-close>完成</button><button class="btn sm" id="s-reset" type="button">清除存檔</button></div>', 'set');
     const wire = (id, fn) => el.querySelector('#' + id) && el.querySelectorAll('#' + id + ' button').forEach(b => b.addEventListener('click', () => { el.querySelectorAll('#' + id + ' button').forEach(o => o.setAttribute('aria-pressed', o === b)); fn(b.dataset.v); }));
     wire('s-ctl', v => { save.ctl = v; persist(); applyControls(); });
+    wire('s-ml', v => { save.mouseLook = v; persist(); });
+    wire('s-ms', v => { save.mouseSens = +v; persist(); });
     wire('s-q', v => { if (v === save.quality) return; save.quality = v; persist(); el.querySelector('#s-note').innerHTML = '畫質會喺重新載入後生效。<button class="btn sm" type="button" id="s-reload">而家重新載入</button>'; el.querySelector('#s-reload').addEventListener('click', () => { save.time = GAME.time; persist(); location.reload(); }); });
     wire('s-snd', v => { save.sound = v === '1'; persist(); AUDIO.setMuted(!save.sound); });
     wire('s-fine', v => { save.fines = v === '1'; persist(); });
@@ -167,7 +171,7 @@ const UI = {
     let armed = false; el.querySelector('#s-reset').addEventListener('click', e => { if (!armed) { armed = true; e.target.textContent = '再按一次確認清除'; return; } try { localStorage.removeItem(SAVE_KEY); } catch (er) {} location.reload(); });
   },
   help() {
-    const k = '<dl class="help">' + [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向鍵', '行路／揸車（S 剎車同倒車）'], ['<kbd>Shift</kbd>', '衝刺（消耗體力）'], ['<kbd>Space</kbd>', '跳／手掣漂移'], ['<kbd>F</kbd>', '上車／落車'], ['<kbd>E</kbd>', '互動：任務、商舖、輕軌站、對話'], ['<kbd>T</kbd>', '手機'], ['<kbd>M</kbd>', '大地圖（點擊設導航，點已打卡地標可快速前往）'], ['<kbd>Q</kbd>', '轉電台'], ['<kbd>H</kbd>', '響號'], ['<kbd>V</kbd>', '切換鏡頭距離'], ['<kbd>P</kbd>', '相機模式／影相'], ['<kbd>R</kbd>', '車反轉或卡住時重置'], ['<kbd>Esc</kbd>', '暫停'], ['滑鼠拖動／滾輪', '轉鏡頭／拉近拉遠']].map(([a, b]) => '<dt>' + a + '</dt><dd>' + b + '</dd>').join('') + '</dl>';
+    const k = '<dl class="help">' + [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向鍵', '行路／揸車（S 剎車同倒車）'], ['<kbd>Shift</kbd>', '衝刺（消耗體力）'], ['<kbd>Space</kbd>', '跳／手掣漂移'], ['<kbd>F</kbd>', '上車／落車'], ['<kbd>E</kbd>', '互動：任務、商舖、輕軌站、對話'], ['<kbd>T</kbd>', '手機'], ['<kbd>M</kbd>', '大地圖（點擊設導航，點已打卡地標可快速前往）'], ['<kbd>Q</kbd>', '轉電台'], ['<kbd>H</kbd>', '響號'], ['<kbd>V</kbd>', '切換鏡頭距離'], ['<kbd>P</kbd>', '相機模式／影相'], ['<kbd>R</kbd>', '車反轉或卡住時重置'], ['<kbd>Esc</kbd>', '暫停'], ['滑鼠', '直接郁滑鼠轉鏡頭（點一下畫面鎖定滑鼠，Esc 放開並暫停）；滾輪拉近拉遠。設定入面可以改返按住左鍵拖動'] ].map(([a, b]) => '<dt>' + a + '</dt><dd>' + b + '</dd>').join('') + '</dl>';
     const t = '<dl class="help">' + [['左下搖桿', '行路／揸車'], ['拖動畫面', '轉鏡頭'], ['上車／落車', '走近車輛時使用'], ['跳／手掣', '行路時跳，揸車時手掣'], ['互動', '任務、商舖、輕軌站、對話'], ['右上一排', '手機、地圖、電台、響號、鏡頭、影相']].map(([a, b]) => '<dt>' + a + '</dt><dd>' + b + '</dd>').join('') + '</dl>';
     this.openDlg('<span class="eb" style="color:var(--accent)">操作說明</span><h2>點樣玩</h2><p>行到地圖上嘅<b style="color:var(--main)">主</b>、<b style="color:var(--side)">支</b>、<b style="color:var(--race)">賽</b>標記按互動接任務；打開手機揀打工；沿途收集葡撻、打卡地標提升完成度。澳門係靠左行車。</p><h3>鍵盤</h3>' + k + '<h3>屏幕按鈕</h3>' + t +'<h3>遊戲手掣（Xbox／PlayStation）</h3><dl class="help">' + [['左搖桿', '行路／方向'], ['右搖桿', '轉鏡頭'], ['RT／LT', '油門／剎車倒車'], ['A／✕', '跳／手掣；選單入面確定'], ['B／○', '返回'], ['X／□', '上車／落車'], ['Y／△', '互動'], ['RB', '衝刺'], ['LB', '響號'], ['十字鍵', '上：手機　下：鏡頭　左：電台　右：影相；選單入面揀項目'], ['View／Share', '地圖'], ['Menu／Options', '暫停']].map(([a, b]) => '<dt>' + a + '</dt><dd>' + b + '</dd>').join('') + '</dl>' + '<div class="row"><button class="btn primary" type="button" data-close>明白</button></div>', 'help');
   },
@@ -181,7 +185,7 @@ const UI = {
     const bests = Object.keys(save.best).map(k => { const m = MISSIONS.find(q => q.id === k); return m ? '<span>' + esc(m.title) + ' 最佳</span><b>' + fmtT(save.best[k]) + '</b>' : ''; }).join('');
     this.openDlg('<span class="eb" style="color:var(--accent)">統計</span><h2>完成度 ' + c.pct + '%</h2><div class="bar"><i style="width:' + c.pct + '%"></i></div><div class="stat">' + row('主線任務', c.main) + row('支線任務', c.side) + row('競速', c.race) + row('打工（每份完成 5 單）', c.job) + row('葡撻', c.tart) + row('地標打卡', c.lm) + '<span>現金</span><b>MOP ' + save.money.toLocaleString() + '</b>' + bests + '</div><div class="row"><button class="btn primary" type="button" data-close>關閉</button></div>', 'stats'); },
   /* ---------- phone ---------- */
-  phone(open) { if (open == null) open = !this.phoneOpen; this.phoneOpen = open; $('phone').hidden = !open; if (open) { $('phone').style.pointerEvents = 'none'; setTimeout(() => $('phone').style.pointerEvents = '', 380); } keys.clear(); if (open) { this.phoneHome(); AUDIO.sfx('door'); } },
+  phone(open) { if (open == null) open = !this.phoneOpen; this.phoneOpen = open; if (open) releaseLock(); else requestLock(); $('phone').hidden = !open; if (open) { $('phone').style.pointerEvents = 'none'; setTimeout(() => $('phone').style.pointerEvents = '', 380); } keys.clear(); if (open) { this.phoneHome(); AUDIO.sfx('door'); } },
   APPS: [['任務', '#E0463A', '任'], ['地圖', '#2F8F5B', '圖'], ['打工', '#2BB37A', '工'], ['輕軌', '#21A598', '軌'], ['電台', '#8E6CC9', '♪'], ['相機', '#3B4A55', '◉'], ['統計', '#F08A24', '%'], ['角色', '#E8577A', '衫'], ['車房', '#C62828', '車'], ['成就', '#C9A04A', '★'], ['設定', '#5A656B', '⚙']],
   phoneHome() { const s = $('ph-scr'); const c = completion();
     s.innerHTML = '<div style="padding:16px 4px 4px"><div style="font-family:var(--f-mono);font-size:44px;font-weight:600;line-height:1">' + fmtClock(GAME.time) + '</div><div style="color:var(--ink-soft);font-size:13px;margin-top:4px">' + ENV.weather + ' ' + ENV.temp + '° · 完成度 ' + c.pct + '% · MOP ' + save.money.toLocaleString() + '</div></div>' +
@@ -224,8 +228,8 @@ const UI = {
     bm.addEventListener('pointercancel', e => { pts.delete(e.pointerId); pinch = null; drag = null; });
     bm.addEventListener('wheel', e => { e.preventDefault(); const k = 1 - e.deltaY * .0012; const wx = this.mv.cx + (e.clientX - innerWidth / 2) / this.mv.s, wz = this.mv.cz + (e.clientY - innerHeight / 2) / this.mv.s; this.mv.s = clamp(this.mv.s * k, .03, 4); this.mv.cx = wx - (e.clientX - innerWidth / 2) / this.mv.s; this.mv.cz = wz - (e.clientY - innerHeight / 2) / this.mv.s; this.drawBig(); }, { passive: false });
   },
-  openMap() { this.mapOpen = true; $('mapview').hidden = false; this.mv.cx = player.x; this.mv.cz = player.z; this.mv.s = Math.min(innerWidth, innerHeight) / 3000; keys.clear(); this.drawBig(); },
-  closeMap() { this.mapOpen = false; $('mapview').hidden = true; },
+  openMap() { releaseLock(); this.mapOpen = true; $('mapview').hidden = false; this.mv.cx = player.x; this.mv.cz = player.z; this.mv.s = Math.min(innerWidth, innerHeight) / 3000; keys.clear(); this.drawBig(); },
+  closeMap() { this.mapOpen = false; $('mapview').hidden = true; requestLock(); },
   mapClick(cx, cy) { const mv = this.mv; const sx = x => innerWidth / 2 + (x - mv.cx) * mv.s, sz = z => innerHeight / 2 + (z - mv.cz) * mv.s;
     for (const l of LMS()) if (save.lms.includes(l.id) && !l.id.startsWith('b-') && Math.hypot(sx(l.x) - cx, sz(l.z) - cy) < 14) { this.taxiTo(l); return; }
     const x = mv.cx + (cx - innerWidth / 2) / mv.s, z = mv.cz + (cy - innerHeight / 2) / mv.s;
