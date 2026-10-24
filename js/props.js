@@ -187,6 +187,7 @@ function buildLamps() {
   for (const rd of ROADS) { if (rd.cls > 2) continue; const sides = rd.cls <= 1 ? [1, -1] : [1]; let s = sp * .5 * (hsh(pts.length) + .5);
     while (s < rd.len) { const p = roadPoint(rd, s); const nx = -p[4], nz = p[3]; for (const sd of sides) { const off = rd.hw + (rd.br ? .4 : 1.1); const x = p[0] + nx * off * sd, z = p[1] + nz * off * sd; const y = rd.br ? p[2] : groundAt(x, z); if (!rd.br && !isLand(x, z)) continue; pts.push([x, y, z, Math.atan2(-nx * sd, -nz * sd)]); } s += sp; }
     if (pts.length > 9000) break; }
+  LAMPS.pts = pts;
   const o = new THREE.Object3D();
   const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(.08, .13, 8, 6).translate(0, 4, 0), new THREE.MeshStandardMaterial({ color: 0x55595c, roughness: .6, metalness: .35 }), pts.length);
   const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(.08, .08, 1.6).translate(0, 7.9, .75), pole.material, pts.length);

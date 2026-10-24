@@ -152,10 +152,10 @@ function buildPlayer() {
 }
 function setCharacter(i) { if (player.ch) world.remove(player.ch.group); save.char = i; const def = CHARS[i]; player.ch = makeCharacter(def, save.outfit && save.outfit[i]); world.add(player.ch.group); player.ch.group.visible = player.mode === 'foot' || (player.car && player.car.type === 'scooter'); }
 function enterVehicle(pc) { PARKED.splice(PARKED.indexOf(pc), 1); const t = CARS[pc.type];
-  player.car = { type: pc.type, hex: pc.hex, mesh: pc.mesh, x: pc.x, z: pc.z, y: pc.y, th: pc.th, vx: 0, vz: 0, vy: 0, air: false, steer: 0, pitch: 0, roll: 0, len: t.len, wid: t.wid, keep: pc.keep, job: pc.job };
+  player.car = { type: pc.type, hex: pc.hex, mesh: pc.mesh, x: pc.x, z: pc.z, y: pc.y, th: pc.th, vx: 0, vz: 0, vy: 0, air: false, steer: 0, pitch: 0, roll: 0, len: t.len, wid: t.wid, keep: pc.keep, job: pc.job, tune: pc.tune || 0, owned: pc.owned };
   player.mode = 'car'; player.ch.group.visible = pc.type === 'scooter'; headlight.intensity = ENV.night > .5 ? 2.6 : 0; }
 function exitVehicle() { const c = player.car; const rx = Math.cos(c.th), rz = -Math.sin(c.th); let ex = c.x - rx * (c.wid / 2 + .9), ez = c.z - rz * (c.wid / 2 + .9); const r = collide(ex, ez, .45, c.y, 1.8); ex = r.x; ez = r.z;
-  const pc = { type: c.type, hex: c.hex, mesh: c.mesh, x: c.x, z: c.z, y: c.y, th: c.th, keep: c.keep, job: c.job }; c.mesh.rotation.set(0, c.th, 0); PARKED.push(pc);
+  const pc = { type: c.type, hex: c.hex, mesh: c.mesh, x: c.x, z: c.z, y: c.y, th: c.th, keep: c.keep, job: c.job, tune: c.tune, owned: c.owned }; c.mesh.rotation.set(0, c.th, 0); PARKED.push(pc);
   player.car = null; player.mode = 'foot'; player.ch.group.visible = true; player.x = ex; player.z = ez; player.y = surfaceAt(ex, ez, c.y + 1); player.vy = 0; headlight.intensity = 0; return pc; }
 function spawnVehicleNear(type, hex, x, z, keep) { const rp = roadPos(x, z, { noBridge: true }); if (!rp) return null; const lx = rp.dz, lz = -rp.dx; const off = type === 'scooter' ? rp.hw + .5 : rp.hw - 1.1; const vx = rp.x + lx * off, vz = rp.z + lz * off;
   return addParked(type, hex, vx, vz, Math.atan2(rp.dx, rp.dz), keep); }

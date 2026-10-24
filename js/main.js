@@ -20,7 +20,7 @@ async function boot() {
     { const raw = atob(G.data); for (let i = 0; i < GW * GH; i++) { const v = raw.charCodeAt(2 * i) | (raw.charCodeAt(2 * i + 1) << 8); HG[i] = v === 65535 ? -1 : v / 10; } }
     const steps = [['地形同海岸線', buildLand], ['道路同行人路', buildRoads], ['立面材質', makeFacadeMat], ['建築物同舖面', buildBuildings], ['重點地標', buildLandmarks], ['樹木', buildTrees], ['碰撞同路網', buildIndices],
       ['街道同堂區', buildPlaces], ['地圖', buildMapCanvas], ['真實商舖', buildShops], ['招牌同大廈名牌', buildSigns], ['交通燈', buildLights], ['巴士站', buildStops], ['路燈', buildLamps], ['輕軌', buildLRT], ['葡撻', buildTarts],
-      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['角色', buildPlayer], ['任務', buildMarkers]];
+      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['角色', buildPlayer], ['任務', buildMarkers]];
     for (let i = 0; i < steps.length; i++) { progress('建造' + steps[i][0], .52 + .46 * i / steps.length); await tick0(); await steps[i][1](); }
     ENV.weather = '晴'; ENV.nextWeather = 300 + Math.random() * 300; player.stamina = save.stamina != null ? save.stamina : 100;
     spawnHome(); spawnParkedAround(player.x, player.z, 26);
@@ -106,7 +106,7 @@ function bindPointer() { const el = cv();
     b.addEventListener('contextmenu', e => e.preventDefault()); });
 }
 function inputAxes() { let f = 0, s = 0; if (keys.has('KeyW') || keys.has('ArrowUp')) f += 1; if (keys.has('KeyS') || keys.has('ArrowDown')) f -= 1; if (keys.has('KeyD') || keys.has('ArrowRight')) s += 1; if (keys.has('KeyA') || keys.has('ArrowLeft')) s -= 1;
-  f += joy.y; s += joy.x; return { f: clamp(f, -1, 1), s: clamp(s, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > .95, jump: keys.has('Space') }; }
+  f += joy.y + GP.f; s += joy.x + GP.s; return { f: clamp(f, -1, 1), s: clamp(s, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || Math.hypot(joy.x, joy.y) > .95 || GP.run, jump: keys.has('Space') || GP.jump }; }
 
 /* ---------- photo mode ---------- */
 function setPhoto(on) { if (on && player.mode !== 'foot') { UI.toast('落車先', '相機模式要喺行路時用。', 2); return; } GAME.photo = on; $('photo-frame').hidden = !on; $('photo-frame').querySelector('span').textContent = on ? (save.ctl === 'touch' ? '相機模式 · 按「影相」拍照 · 再按「鏡頭」或 Esc 離開' : '相機模式 · 按 P 影相 · Esc 離開') : ''; if (on) { cam.pitch = .08; } }
@@ -114,7 +114,7 @@ function photoKey() { const m = MS.cur, s = m && m.steps[MS.step]; const mission
   if (!GAME.photo && !missionOk) { setPhoto(true); return; }
   if (s && s.k === 'photo') photoTaken(); else { AUDIO.sfx('shutter'); UI.flash(); }
   GAME.shot = true; }
-function capturePhoto() { try { const src = renderer.domElement; const w = 480, h = Math.round(w * src.height / src.width); const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h); UI.photos.unshift(c.toDataURL('image/jpeg', .85)); UI.photos.length = Math.min(UI.photos.length, 8); UI.toast('影咗張相', '喺手機「相機」入面睇同下載。', 2.5); } catch (e) {} }
+function capturePhoto() { try { const src = renderer.domElement; const w = 480, h = Math.round(w * src.height / src.width); const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(src, 0, 0, w, h); UI.photos.unshift(c.toDataURL('image/jpeg', .85)); UI.photos.length = Math.min(UI.photos.length, 8); save.stats.photos++; UI.toast('影咗張相', '喺手機「相機」入面睇同下載。', 2.5); } catch (e) {} }
 
 /* ---------- on foot ---------- */
 let exhausted = false;
@@ -146,7 +146,7 @@ function updateFoot(dt, inp) {
 let lastHit = 0;
 function updateCar(dt, inp) {
   const c = player.car; const spec = CARS[c.type]; const scooter = c.type === 'scooter'; const fx = Math.sin(c.th), fz = Math.cos(c.th), rx = Math.cos(c.th), rz = -Math.sin(c.th);
-  let vf = c.vx * fx + c.vz * fz, vl = c.vx * rx + c.vz * rz; const hb = inp.jump; const maxV = spec.maxV, acc = spec.acc;
+  let vf = c.vx * fx + c.vz * fz, vl = c.vx * rx + c.vz * rz; const hb = inp.jump; const tune = 1 + .1 * (c.tune || 0); const maxV = spec.maxV * tune, acc = spec.acc * tune;
   if (!c.air) {
     if (inp.f > .05) { if (vf < -.5) vf += inp.f * 20 * dt; else vf += inp.f * acc * (1 - Math.max(0, vf) / maxV) * dt; }
     else if (inp.f < -.05) { if (vf > .5) vf += inp.f * 22 * dt; else vf = Math.max(scooter ? -4 : -11, vf + inp.f * 6 * dt); }
@@ -217,7 +217,7 @@ function frame(now) {
   const dt = Math.min(.05, (now - lastT) / 1000); lastT = now; GAME.frame++;
   if (W && player.ch) {
     if (GAME.started) {
-      const frozen = UI.dlgOpen || UI.mapOpen || UI.phoneOpen;
+      GP.poll(dt); const frozen = UI.dlgOpen || UI.mapOpen || UI.phoneOpen;
       if (!frozen) {
         GAME.clock += dt; GAME.time = (GAME.time + dt * TIME_RATE) % 1440;
         const inp = inputAxes(); if (MS.cur && MS.data && MS.data.raceId && !MS.data.started) inp.f = Math.min(0, inp.f);
@@ -232,7 +232,7 @@ function frame(now) {
       const c = player.car; AUDIO.update(dt, player.mode === 'car' && !frozen, c ? c.vf || 0 : 0, c ? c.thr || 0 : 0, c ? Math.abs(c.vl || 0) : 0, c && c.type === 'sport');
       persistT -= dt; if (persistT <= 0) { persistT = 5; save.time = GAME.time; save.stamina = Math.round(player.stamina); persist(); }
     } else { const t = now / 1000; camTgt.set(player.x, player.y + 30, player.z); camera.position.set(player.x + Math.sin(t * .05) * 380, player.y + 170, player.z + Math.cos(t * .05) * 380); camera.lookAt(camTgt); setNear(2); followSun(camTgt); updateLights(dt); updateLRT(dt); updateTarts(t); }
-    updateEnv(dt, GAME.time, camTgt); updateSigns(player.x, player.z);
+    updateEnv(dt, GAME.time, camTgt); EX.update(dt, GAME.started && (UI.dlgOpen || UI.mapOpen || UI.phoneOpen)); updateSigns(player.x, player.z);
     renderer.render(scene, camera); if (GAME.frame > 2) signsAfterFirstFrame();
     if (GAME.shot) { GAME.shot = false; capturePhoto(); }
   } else if (renderer) renderer.render(scene, camera);
@@ -240,4 +240,4 @@ function frame(now) {
 }
 boot().then(() => { if (W && player.ch) bindPointer(); });
 requestAnimationFrame(frame);
-window.__game = { GAME, player, MS, save, keys, cam, pressKey, teleport, startMission, MISSIONS, completion, SIGNS, SHOPS, LRT, UI };
+window.__game = { EX, GP, GAME, player, MS, save, keys, cam, pressKey, teleport, startMission, MISSIONS, completion, SIGNS, SHOPS, LRT, UI };
