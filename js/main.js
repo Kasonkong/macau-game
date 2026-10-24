@@ -150,7 +150,7 @@ function updateCar(dt, inp) {
   if (!c.air) {
     if (inp.f > .05) { if (vf < -.5) vf += inp.f * 20 * dt; else vf += inp.f * acc * (1 - Math.max(0, vf) / maxV) * dt; }
     else if (inp.f < -.05) { if (vf > .5) vf += inp.f * 22 * dt; else vf = Math.max(scooter ? -4 : -11, vf + inp.f * 6 * dt); }
-    vf -= vf * .18 * dt + Math.sign(vf) * Math.min(Math.abs(vf), .4 * dt);
+    vf -= vf * (inp.f > .05 ? .02 : .06) * dt + Math.sign(vf) * Math.min(Math.abs(vf), .4 * dt);
     if (hb) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 9 * dt);
     const maxSteer = (scooter ? .75 : .6) / (1 + Math.abs(vf) / (scooter ? 12 : 16)); c.steer += (inp.s * maxSteer - c.steer) * Math.min(1, dt * 7);
     c.th -= vf * Math.tan(c.steer) / (scooter ? 1.4 : 2.7) * dt * (hb ? 1.35 : 1);

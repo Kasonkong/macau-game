@@ -18,6 +18,7 @@ const DEALER = [
 ];
 const PAINT = ['#C62828', '#F2F2EF', '#2A2D30', '#2D4F8C', '#F2C14E', '#2E7D5B', '#E8577A', '#8E6CC9'];
 const TUNE_COST = [1500, 2500, 4000];
+function topSpeed(type, tune) { const k = 1 + .1 * (tune || 0); const a = CARS[type].acc * k, v = CARS[type].maxV * k; return Math.round((a - .4) / (a / v + .02) * 3.6); } // matches the throttle/drag model in updateCar
 
 /* ---------- achievements ---------- */
 const ACH = [
@@ -130,10 +131,10 @@ EX.summon = function (i) { const g = save.garage[i]; if (!g) return;
   pc.tune = g.tune || 0; pc.owned = i; EX.summoned = pc; AUDIO.sfx('ok'); UI.toast('你架' + DEALER.find(d => d.type === g.type).name + '到咗', '泊咗喺最近嘅路邊，行過去按「上車」。', 3.5); };
 EX.appGarage = function (s, back) {
   const own = save.garage.map((g, i) => { const d = DEALER.find(q => q.type === g.type); const tl = g.tune || 0;
-    return '<div class="glass" style="padding:10px 12px;display:grid;gap:8px"><div style="display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:' + g.hex + ';border:2px solid rgb(255 255 255 / .4)"></span><b style="flex:1">' + d.name + '</b><span style="font-family:var(--f-mono);font-size:12px;color:var(--ink-soft)">引擎 Lv' + tl + '</span></div>' +
+    return '<div class="glass" style="padding:10px 12px;display:grid;gap:8px"><div style="display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:' + g.hex + ';border:2px solid rgb(255 255 255 / .4)"></span><b style="flex:1">' + d.name + '</b><span style="font-family:var(--f-mono);font-size:12px;color:var(--ink-soft)">引擎 Lv' + tl + ' · 極速 ' + topSpeed(g.type, tl) + ' km/h</span></div>' +
       '<div class="row"><button class="btn sm primary" type="button" data-call="' + i + '">叫車</button>' + (tl < 3 ? '<button class="btn sm" type="button" data-tune="' + i + '">改裝引擎 · MOP ' + TUNE_COST[tl].toLocaleString() + '</button>' : '<span style="font-size:12px;color:var(--ink-soft)">已改到最高級</span>') + '</div></div>'; }).join('');
   s.innerHTML = UI.appHead('車房') + '<p style="color:var(--ink-soft);font-size:13px;margin:0">買咗嘅車隨時可以叫到身邊。每級引擎改裝提升 10% 極速同加速。</p>' + (own ? '<h3 style="margin:4px 0 0;font-size:11px;letter-spacing:.2em;color:var(--ink-soft)">我嘅車</h3>' + own : '') +
-    '<h3 style="margin:4px 0 0;font-size:11px;letter-spacing:.2em;color:var(--ink-soft)">車行 · 現金 MOP ' + save.money.toLocaleString() + '</h3><div class="list">' + DEALER.map((d, i) => '<button class="item" type="button" data-buy="' + i + '"><span class="ic" style="background:#3B4A55">車</span><span class="nm">' + d.name + '</span><span class="ds">' + d.desc + ' 極速約 ' + Math.round(CARS[d.type].maxV * 3.6) + ' km/h</span><span class="rt">MOP ' + d.price.toLocaleString() + '</span></button>').join('') + '</div>';
+    '<h3 style="margin:4px 0 0;font-size:11px;letter-spacing:.2em;color:var(--ink-soft)">車行 · 現金 MOP ' + save.money.toLocaleString() + '</h3><div class="list">' + DEALER.map((d, i) => '<button class="item" type="button" data-buy="' + i + '"><span class="ic" style="background:#3B4A55">車</span><span class="nm">' + d.name + '</span><span class="ds">' + d.desc + ' 極速約 ' + topSpeed(d.type, 0) + ' km/h</span><span class="rt">MOP ' + d.price.toLocaleString() + '</span></button>').join('') + '</div>';
   back();
   s.querySelectorAll('[data-call]').forEach(b => b.addEventListener('click', () => { if (player.mode === 'car') { UI.toast('落車先', '叫車要喺行路時用。', 2); return; } UI.phone(false); EX.summon(+b.dataset.call); }));
   s.querySelectorAll('[data-tune]').forEach(b => b.addEventListener('click', () => { const g = save.garage[+b.dataset.tune]; const tl = g.tune || 0; if (save.money < TUNE_COST[tl]) { UI.toast('唔夠錢', '改裝要 MOP ' + TUNE_COST[tl].toLocaleString() + '。', 2); return; }
