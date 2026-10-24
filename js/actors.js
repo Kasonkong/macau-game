@@ -124,7 +124,7 @@ function updatePeds(dt, px, pz, carObj) {
     p.dodge = Math.max(0, p.dodge - dt * 0.8);
     if (!carObj) { const dx = x - px, dz = z - pz; if (dx * dx + dz * dz < 0.6) p.dodge = Math.min(2, p.dodge + dt * 4); }
     const th = Math.atan2(q[3] * p.dir, q[4] * p.dir); p.x = x; p.z = z; p.ph += dt * p.v * 3.2; const y = surfaceAt(x, z, 99) - .02 + Math.abs(Math.sin(p.ph)) * 0.035;
-    _o.position.set(x, y, z); _o.rotation.set(0, th, 0); _o.scale.set(1, 1, 1); _o.updateMatrix(); pedM.body.setMatrixAt(p.i, _o.matrix); pedM.head.setMatrixAt(p.i, _o.matrix); pedM.hair.setMatrixAt(p.i, _o.matrix);
+    p.y = y; p.th = th; _o.position.set(x, y, z); _o.rotation.set(0, th, 0); _o.scale.set(1, 1, 1); _o.updateMatrix(); pedM.body.setMatrixAt(p.i, _o.matrix); pedM.head.setMatrixAt(p.i, _o.matrix); pedM.hair.setMatrixAt(p.i, _o.matrix);
     const sw2 = Math.sin(p.ph) * .55; const cs = Math.cos(th), sn = Math.sin(th);
     for (const [m, side, a] of [[pedM.legL, -1, sw2], [pedM.legR, 1, -sw2]]) { _o.position.set(x + cs * .11 * side, y + .9, z - sn * .11 * side); _o.rotation.set(a, th, 0, 'YXZ'); _o.updateMatrix(); m.setMatrixAt(p.i, _o.matrix); } }
   for (const k in pedM) pedM[k].instanceMatrix.needsUpdate = true;

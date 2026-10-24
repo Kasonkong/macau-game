@@ -95,6 +95,7 @@ const UI = {
   },
   shop(s) {
     const k = shopKind(s.cat); const head = '<span class="eb" style="color:var(--accent)">' + esc(CAT_ZH[k] || '商舖') + '</span><h2>' + esc(s.name) + '</h2>';
+    if (!shopOpen(s, GAME.time)) { this.openDlg(head + '<p>已經落咗閘收舖。' + (k === 'food' || k === 'fast' ? '營業到凌晨 2 點，朝早 7 點再開。' : '營業時間大約 08:00–23:00，聽朝再嚟啦。') + '便利店同酒店 24 小時營業。</p><div class="row"><button class="btn" type="button" data-close>離開</button></div>', 'shop'); return; }
     const after = () => { this.money(0); };
     if (k && SHOP_MENU[k]) {
       const el = this.openDlg(head + '<p>體力 ' + Math.round(player.stamina) + ' / 100 · 食嘢飲嘢可以回復體力。</p><div class="list">' + SHOP_MENU[k].map((it, i) => '<button class="item" type="button" data-i="' + i + '"><span class="ic" style="background:#8A5A2B">食</span><span class="nm">' + it[0] + '</span><span class="ds">體力 +' + it[2] + '</span><span class="rt">MOP ' + it[1] + '</span></button>').join('') + '</div><div class="row"><button class="btn" type="button" data-close>離開</button></div>', 'shop');

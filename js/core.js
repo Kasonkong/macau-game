@@ -126,13 +126,13 @@ function colorHills(P) {
 }
 
 /* ---------- facade material: windows, residential grilles + AC units, street shopfronts, night lights ---------- */
-const FU = { uNight: { value: 0 }, uWet: { value: 0 } };
+const FU = { uNight: { value: 0 }, uWet: { value: 0 }, uClosed: { value: 0 } };
 function facadeShader(sh) {
-  sh.uniforms.uNight = FU.uNight;
+  sh.uniforms.uNight = FU.uNight; sh.uniforms.uClosed = FU.uClosed;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 fx;\nattribute vec2 fy;\nvarying vec3 vFx;\nvarying vec2 vFy;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFx=fx;vFy=fy;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-varying vec3 vFx;varying vec2 vFy;uniform float uNight;
+varying vec3 vFx;varying vec2 vFy;uniform float uNight;uniform float uClosed;
 float h12(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
 float bx(vec2 g,vec2 a,vec2 b){vec2 s=step(a,g)*step(g,b);return s.x*s.y;}
 vec3 pal6(float h){if(h<.17)return vec3(.74,.15,.13);if(h<.33)return vec3(.12,.3,.52);if(h<.5)return vec3(.93,.78,.26);if(h<.67)return vec3(.16,.46,.28);if(h<.83)return vec3(.9,.88,.84);return vec3(.5,.1,.3);}`)
@@ -175,7 +175,7 @@ if(st>0.5){
     float pil=step(bf,.05)+step(.95,bf);
     if(y<3.2){
       if(pil>.5)sc=conc;
-      else if(hs<.26){float s2=fract(y*6.5);sc=mix(vec3(.5,.52,.53),vec3(.66,.68,.69),step(.5,s2));lit=0.04;}
+      else if(hs<.26+.55*uClosed){float s2=fract(y*6.5);sc=mix(vec3(.5,.52,.53),vec3(.66,.68,.69),step(.5,s2));lit=0.04;}
       else{vec3 ins=mix(vec3(.2,.17,.14),vec3(.78,.64,.44),h12(vec2(bi,5.0)));float fr=clamp(step(fract(bf*3.0),.035)+step(2.75,y)*step(y,2.85)+step(y,.75)*.6,0.,1.);
         sc=mix(ins*.5+vec3(.05,.06,.08),vec3(.16),fr);lit=(1.0-fr)*(.7+.3*hs);glassAmt=.6*(1.0-fr);}
     }else if(y<3.6){sc=conc*.72;}
@@ -291,7 +291,7 @@ function buildRoads() {
 }
 
 /* cut away an object's fragments close to the camera (awnings over the pavement would otherwise hide the player) */
-function nearFade(mat, r) { mat.onBeforeCompile = sh => {
+function nearFade(mat, r) { mat.customProgramCacheKey = () => 'nf' + r + (mat.userData.ck || ''); mat.onBeforeCompile = sh => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vNfW;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvec4 nfp=vec4(transformed,1.0);\n#ifdef USE_INSTANCING\nnfp=instanceMatrix*nfp;\n#endif\nvNfW=(modelMatrix*nfp).xyz;');
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vNfW;').replace('void main() {', 'void main() {\nfloat nfd=distance(vNfW,cameraPosition);if(nfd<' + r.toFixed(1) + '){float th=fract(sin(dot(floor(gl_FragCoord.xy),vec2(12.9898,78.233)))*43758.5453);if(th>(nfd-' + (r * .55).toFixed(1) + ')/' + (r * .45).toFixed(1) + ')discard;}'); }; }
 /* ---------- buildings ---------- */

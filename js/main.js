@@ -20,7 +20,7 @@ async function boot() {
     { const raw = atob(G.data); for (let i = 0; i < GW * GH; i++) { const v = raw.charCodeAt(2 * i) | (raw.charCodeAt(2 * i + 1) << 8); HG[i] = v === 65535 ? -1 : v / 10; } }
     const steps = [['地形同海岸線', buildLand], ['道路同行人路', buildRoads], ['立面材質', makeFacadeMat], ['建築物同舖面', buildBuildings], ['重點地標', buildLandmarks], ['樹木', buildTrees], ['碰撞同路網', buildIndices],
       ['街道同堂區', buildPlaces], ['地圖', buildMapCanvas], ['真實商舖', buildShops], ['招牌同大廈名牌', buildSigns], ['交通燈', buildLights], ['巴士站', buildStops], ['路燈', buildLamps], ['輕軌', buildLRT], ['葡撻', buildTarts],
-      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['角色', buildPlayer], ['任務', buildMarkers]];
+      ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['街景細節', LIFE.build], ['角色', buildPlayer], ['任務', buildMarkers]];
     for (let i = 0; i < steps.length; i++) { progress('建造' + steps[i][0], .52 + .46 * i / steps.length); await tick0(); await steps[i][1](); }
     ENV.weather = '晴'; ENV.nextWeather = 300 + Math.random() * 300; player.stamina = save.stamina != null ? save.stamina : 100;
     spawnHome(); spawnParkedAround(player.x, player.z, 26);
@@ -69,7 +69,7 @@ function pressKey(k) {
   if (k === 'KeyE' || k === 'Enter') interact();
   else if (k === 'KeyF') toggleCar();
   else if (k === 'KeyQ') { if (player.mode !== 'car') { UI.toast('電台', '上車先可以聽電台。', 2); return; } const st = AUDIO.cycleRadio(); if (st) UI.toast(st.name, st.fm || '收音機已關閉', 2); }
-  else if (k === 'KeyH') { AUDIO.sfx('horn'); for (const p of PEDS) if (p.alive && Math.hypot(p.x - player.x, p.z - player.z) < 14) p.dodge = Math.max(p.dodge, 1.5); }
+  else if (k === 'KeyH') { AUDIO.sfx('horn'); hornReaction(); for (const p of PEDS) if (p.alive && Math.hypot(p.x - player.x, p.z - player.z) < 14) p.dodge = Math.max(p.dodge, 1.5); }
   else if (k === 'KeyV' || k === 'KeyC') { cam.distCar = cam.distCar > 14 ? 8 : cam.distCar < 10 ? 12 : 18; cam.dist = cam.dist > 7 ? 4.2 : cam.dist < 5 ? 6.5 : 9; }
   else if (k === 'KeyP') photoKey();
   else if (k === 'KeyR') { if (player.mode === 'car') { unstuck(); UI.toast('已重置車輛', '', 1.5); } }
@@ -124,7 +124,7 @@ function updateFoot(dt, inp) {
   if (player.stamina <= 0) exhausted = true; if (exhausted && player.stamina > 25) exhausted = false;
   const running = inp.run && !exhausted && ml > .2 && !GAME.photo;
   player.stamina = clamp(player.stamina + (running ? -13 : 8) * dt, 0, 100);
-  const sp = (running ? 8.4 : GAME.photo ? 2.2 : 4.3) * Math.min(1, ml);
+  const sp = (running ? 8.4 : GAME.photo ? 2.2 : 4.3) * Math.min(1, ml); player._sp = sp;
   if (ml > .05) { mx /= ml; mz /= ml; const tth = Math.atan2(mx, mz); let d = tth - player.th; d = Math.atan2(Math.sin(d), Math.cos(d)); player.th += d * Math.min(1, dt * 12); }
   let nx = player.x + mx * sp * dt, nz = player.z + mz * sp * dt;
   const ng = surfaceAt(nx, nz, player.y + .9); if (ng > player.y + .75 && player.grounded) { nx = player.x; nz = player.z; }
@@ -204,7 +204,7 @@ function updatePrompt(dt) { promptT -= dt; if (promptT > 0) return; promptT = .1
   if (!UI.sayOpen) {
     if (MS.nearStart) parts.push(keyHint('E', '互動') + ' 接任務：' + esc(MS.nearStart.title));
     if (foot) { const pc = nearParked(); if (pc) parts.push(keyHint('F', '上車') + (pc.type === 'scooter' ? ' 揸電單車' : pc.type === 'taxi' ? ' 揸的士' : ' 上車'));
-      if (!MS.nearStart) { const st = nearStation(); if (st) parts.push(keyHint('E', '互動') + ' 搭輕軌 · ' + esc(st.name)); else { const sh = nearestShop(player.x, player.z, 6.5); if (sh) parts.push(keyHint('E', '互動') + ' 入去 ' + esc(sh.name)); } } }
+      if (!MS.nearStart) { const st = nearStation(); if (st) parts.push(keyHint('E', '互動') + ' 搭輕軌 · ' + esc(st.name)); else { const sh = nearestShop(player.x, player.z, 6.5); if (sh) parts.push(keyHint('E', '互動') + ' 入去 ' + esc(sh.name) + (shopOpen(sh, GAME.time) ? '' : '（已收舖）')); } } }
     else if (Math.hypot(player.car.vx, player.car.vz) < 1.5 && !parts.length) parts.push(keyHint('F', '落車') + ' 落車');
   }
   UI.prompt(parts.join(' · '));
@@ -232,7 +232,7 @@ function frame(now) {
       const c = player.car; AUDIO.update(dt, player.mode === 'car' && !frozen, c ? c.vf || 0 : 0, c ? c.thr || 0 : 0, c ? Math.abs(c.vl || 0) : 0, c && c.type === 'sport');
       persistT -= dt; if (persistT <= 0) { persistT = 5; save.time = GAME.time; save.stamina = Math.round(player.stamina); persist(); }
     } else { const t = now / 1000; camTgt.set(player.x, player.y + 30, player.z); camera.position.set(player.x + Math.sin(t * .05) * 380, player.y + 170, player.z + Math.cos(t * .05) * 380); camera.lookAt(camTgt); setNear(2); followSun(camTgt); updateLights(dt); updateLRT(dt); updateTarts(t); }
-    updateEnv(dt, GAME.time, camTgt); EX.update(dt, GAME.started && (UI.dlgOpen || UI.mapOpen || UI.phoneOpen)); updateSigns(player.x, player.z);
+    updateEnv(dt, GAME.time, camTgt); { const fr = GAME.started && (UI.dlgOpen || UI.mapOpen || UI.phoneOpen); EX.update(dt, fr); LIFE.update(dt, fr); } updateSigns(player.x, player.z);
     renderer.render(scene, camera); if (GAME.frame > 2) signsAfterFirstFrame();
     if (GAME.shot) { GAME.shot = false; capturePhoto(); }
   } else if (renderer) renderer.render(scene, camera);
@@ -240,4 +240,4 @@ function frame(now) {
 }
 boot().then(() => { if (W && player.ch) bindPointer(); });
 requestAnimationFrame(frame);
-window.__game = { EX, GP, GAME, player, MS, save, keys, cam, pressKey, teleport, startMission, MISSIONS, completion, SIGNS, SHOPS, LRT, UI };
+window.__game = { LIFE, EX, GP, GAME, player, MS, save, keys, cam, pressKey, teleport, startMission, MISSIONS, completion, SIGNS, SHOPS, LRT, UI };

@@ -94,7 +94,7 @@ EX.update = function (dt, frozen) {
   // sky
   if (EX.sky) { const u = EX.sky.material.uniforms; EX.sky.position.copy(camera.position); u.uH.value.copy(scene.fog.color);
     const cloud = ENV.weather === '晴' ? 0 : ENV.weather === '多雲' ? .5 : .85; u.uCloud.value = cloud; u.uNight.value = ENV.night;
-    u.uZ.value.set('#3F78B8').lerp(_cb.set('#03060A'), ENV.night).lerp(_ca.copy(scene.fog.color), cloud * .7).lerp(_ca.set('#C9845E'), ENV.dusk * .25);
+    u.uZ.value.set('#3F78B8').lerp(_cb.set('#03060A'), ENV.night).lerp(_ca.copy(scene.fog.color), cloud * .95).lerp(_ca.set('#C9845E'), ENV.dusk * .25);
     const th = (GAME.time - 360) / 720 * Math.PI; u.uSun.value.set(Math.cos(th) * .85, Math.sin(th), .42).normalize(); u.uSunCol.value.set('#FFF3DC').lerp(_ca.set('#FF9A55'), ENV.dusk); }
   if (EX.pools) { const k = clamp((ENV.night - .35) / .4, 0, 1); EX.pools.visible = k > 0; EX.pools.material.opacity = k * .42; }
   // distance culling of building chunks

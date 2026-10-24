@@ -61,6 +61,8 @@ kbd{font-family:var(--f-mono);font-size:12px;background:rgb(255 255 255 / .12);b
 #radio b{color:var(--ink);font-weight:500}
 #prompt{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:8px 14px;font-size:14px;white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
 #fps{position:fixed;left:50%;bottom:calc(8px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:11px;padding:3px 8px;pointer-events:none}
+#bubble{position:fixed;transform:translate(-50%,-100%);background:#FBFAF6;color:#1B1D1F;font-size:13.5px;font-weight:600;padding:6px 11px;border-radius:12px;white-space:nowrap;pointer-events:none;box-shadow:0 3px 12px rgb(0 0 0 / .35)}
+#bubble::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#FBFAF6}
 #timer{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:6px 14px;font-family:var(--f-mono);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
 #timer.low{color:var(--warn)}
 #toast{position:fixed;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:10px 16px;text-align:center;max-width:min(460px,calc(100% - 24px))}
@@ -206,6 +208,7 @@ body.touch #tl{max-width:calc(100% - 200px)}
   <div id="br"><div id="radio" class="glass" hidden></div><div id="speedo" class="glass" hidden><b id="spd">0</b><span>KM/H</span></div></div>
   <div id="prompt" class="glass" hidden></div>
   <div id="fps" class="chip glass" hidden></div>
+  <div id="bubble" hidden></div>
   <div id="timer" class="glass" hidden></div>
   <div id="toast" class="glass" hidden><div class="tt"></div><div class="ts"></div></div>
   <div id="big" hidden><div class="bt"></div><div class="bs"></div></div>
@@ -267,6 +270,7 @@ body.touch #tl{max-width:calc(100% - 200px)}
 <script src="js/audio.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/extras.js"></script>
+<script src="js/life.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
