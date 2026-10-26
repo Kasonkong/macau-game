@@ -136,7 +136,7 @@ function startMission(m) {
 function failMission(why) { const m = MS.cur; cleanupMission(); UI.toast('任務失敗', why + '。走返去標記可以再試。', 5); AUDIO.sfx('fail'); }
 function cleanupMission() { clearRacers(); if (MS.lead) { hideInst(MS.lead); MS.lead.alive = false; MS.lead.reserved = false; MS.lead = null; } if (MS.npc) { world.remove(MS.npc.group); MS.npc = null; } MS.cur = null; MS.timer = null; MS.cps = null; MS.route = null; MS.cargo = null;
   MS.ring.visible = false; MS.dest.visible = false; MS.pick.visible = false; UI.objective(null); UI.timer(null); UI.sayClose(); }
-function completeMission() { const m = MS.cur; const first = !save.done[m.id]; save.done[m.id] = true; const pay = first ? m.reward : Math.round(m.reward * .3); addMoney(pay); persist(); cleanupMission();
+function completeMission() { const m = MS.cur; save.stats.missions = (save.stats.missions || 0) + 1; const first = !save.done[m.id]; save.done[m.id] = true; const pay = first ? m.reward : Math.round(m.reward * .3); addMoney(pay); persist(); cleanupMission();
   UI.big(m.cat === 'main' ? '任務完成' : m.cat === 'race' ? '完成比賽' : '支線完成', m.title + ' · MOP +' + pay); AUDIO.sfx('done');
   if (m.id === 'm10') setTimeout(() => UI.toast('主線完成', '多謝遊玩！繼續探索、打工、收集葡撻，提升完成度。', 8), 3500); }
 function nextStep() { const m = MS.cur; if (!m) return; MS.step++; MS.data = {}; MS.dest.visible = false; MS.pick.visible = false; MS.ring.visible = false; MS.route = null;
@@ -284,7 +284,7 @@ function updateMissions(dt) {
         UI.toast(j.def.id === 'taxi' ? '乘客上車' : j.def.id === 'tour' ? '旅客上車' : '已取貨', '目的地：' + j.to.label + ' · 約 ' + (pr.L / 1000).toFixed(1) + ' 公里', 3.5); } }
     else if (j.stage === 'drop') { j.time -= dt; const t = j.to; const d = Math.hypot(t.x - px, t.z - pz);
       UI.objective(j.def.title + ' · 送去 ' + t.label, '跟住藍色導航線', Math.round(d) + ' m · 剩 ' + Math.max(0, Math.ceil(j.time)) + ' 秒' + (j.time < 0 ? '（超時）' : '') + ' · ' + (j.def.id === 'taxi' ? '車資' : '報酬') + ' MOP ' + j.pay);
-      if (d < 13 && spd < 4 && player.mode === 'car') { const bonus = j.time > 0 ? Math.round(Math.min(j.pay * .5, j.time * .2)) : 0; const tot = j.pay + bonus; addMoney(tot); j.n++; j.earned += tot; MS.dest.visible = false; AUDIO.sfx('done');
+      if (d < 13 && spd < 4 && player.mode === 'car') { const bonus = j.time > 0 ? Math.round(Math.min(j.pay * .5, j.time * .2)) : 0; const tot = j.pay + bonus; addMoney(tot); j.n++; j.earned += tot; save.stats.jobRuns = (save.stats.jobRuns || 0) + 1; MS.dest.visible = false; AUDIO.sfx('done');
         UI.toast('完成第 ' + j.n + ' 單', (j.def.id === 'taxi' ? '車資' : '報酬') + ' MOP ' + j.pay + (bonus ? ' + 準時獎勵 MOP ' + bonus : ''), 4);
         if (j.n === 5 && !save.jobs[j.def.id]) { save.jobs[j.def.id] = true; addMoney(300); persist(); setTimeout(() => UI.big('打工完成', j.def.title + ' · 獎金 MOP 300'), 1200); }
         j.stage = 'wait'; setTimeout(() => { if (MS.job === j) nextJobRun(); }, 1600); } } }
@@ -304,7 +304,8 @@ function updateMissions(dt) {
 function photoTaken() { const m = MS.cur; if (!m) return false; const s = m.steps[MS.step]; if (!s || s.k !== 'photo') return false; if (MS.data.ok) { AUDIO.sfx('shutter'); UI.flash(); setTimeout(() => nextStep(), 600); return true; } UI.toast('影唔到', '要喺附近落車，對正目標再影。', 2.5); return true; }
 function completion() { const main = MISSIONS.filter(m => m.cat === 'main'), side = MISSIONS.filter(m => m.cat === 'side'), race = MISSIONS.filter(m => m.cat === 'race');
   const f = (a, b) => b ? a / b : 0; const c = { main: [main.filter(m => save.done[m.id]).length, main.length], side: [side.filter(m => save.done[m.id]).length, side.length], race: [race.filter(m => save.done[m.id]).length, race.length], job: [JOBS.filter(j => save.jobs[j.id]).length, JOBS.length], tart: [save.tarts.length, TARTS.pos.length], lm: [save.lms.length, LMS().length] };
-  c.pct = Math.round((f(...c.main) * .4 + f(...c.side) * .15 + f(...c.race) * .15 + f(...c.job) * .1 + f(...c.tart) * .1 + f(...c.lm) * .1) * 100); return c; }
+  c.cat = [save.cats ? save.cats.length : 0, typeof FUN !== 'undefined' && FUN.cats.length ? FUN.cats.length : 30];
+  c.pct = Math.round((f(...c.main) * .38 + f(...c.side) * .15 + f(...c.race) * .14 + f(...c.job) * .1 + f(...c.tart) * .08 + f(...c.lm) * .08 + f(...c.cat) * .07) * 100); return c; }
 const fmtT = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
 const fmtClock = m => { m = ((m % 1440) + 1440) % 1440; const h = Math.floor(m / 60), mm = Math.floor(m % 60); return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm; };
 function addMoney(v) { save.money = Math.max(0, Math.round(save.money + v)); UI.money(v); persist(); }

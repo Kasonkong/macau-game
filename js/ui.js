@@ -76,7 +76,7 @@ const UI = {
     this.locT -= dt; if (this.locT <= 0) { this.locT = .5; const p = parishAt(px, pz); const st = streetAt(px, pz);
       let pr = p ? p.name : isLand(px, pz) ? '澳門' : '海上', pt = p ? p.pt : '';
       $('loc-pr').innerHTML = esc(pr) + (pt ? '<small>' + esc(pt.toUpperCase()) + '</small>' : ''); $('loc-st').textContent = st || (player.y > 8 && player.mode === 'car' && surfaceAt(px, pz, player.y + 1) > groundAt(px, pz) + 2 ? '跨海大橋' : '');
-      $('clock').textContent = fmtClock(GAME.time) + ' · ' + ENV.weather + ' ' + ENV.temp + '°'; $('ph-time').textContent = fmtClock(GAME.time); }
+      $('clock').textContent = '星期' + WEEKDAY[save.day % 7] + ' ' + fmtClock(GAME.time) + ' · ' + ENV.weather + ' ' + ENV.temp + '°'; $('ph-time').textContent = fmtClock(GAME.time); }
     $('stam-v').style.width = player.stamina + '%'; $('stam-v').style.background = player.stamina < 25 ? 'var(--warn)' : 'var(--good)'; $('stam').hidden = player.mode === 'car' && player.stamina > 99;
     const inCar = player.mode === 'car'; $('speedo').hidden = !inCar; if (inCar) { const c = player.car; $('spd').textContent = Math.round(Math.abs(c.vx * Math.sin(c.th) + c.vz * Math.cos(c.th)) * 3.6); ; const d = c.dmg || 0; const bi = $('dmgbar').firstChild; bi.style.width = d + '%'; bi.style.background = d >= 80 ? 'var(--main)' : d >= 50 ? 'var(--warn)' : 'var(--good)'; }
     const st = AUDIO.STATIONS[AUDIO.station]; const rv = inCar && AUDIO.ac && AUDIO.station > 0; $('radio').hidden = !rv; if (rv) $('radio').innerHTML = '♪ <b>' + esc(st.name) + '</b> ' + st.fm;
@@ -100,7 +100,7 @@ const UI = {
     if (k && SHOP_MENU[k]) {
       const el = this.openDlg(head + '<p>體力 ' + Math.round(player.stamina) + ' / 100 · 食嘢飲嘢可以回復體力。</p><div class="list">' + SHOP_MENU[k].map((it, i) => '<button class="item" type="button" data-i="' + i + '"><span class="ic" style="background:#8A5A2B">食</span><span class="nm">' + it[0] + '</span><span class="ds">體力 +' + it[2] + '</span><span class="rt">MOP ' + it[1] + '</span></button>').join('') + '</div><div class="row"><button class="btn" type="button" data-close>離開</button></div>', 'shop');
       el.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => { const it = SHOP_MENU[k][+b.dataset.i]; if (save.money < it[1]) { this.toast('唔夠錢', '去打工賺錢先。', 2); return; }
-        addMoney(-it[1]); player.stamina = Math.min(100, player.stamina + it[2]); save.stamina = player.stamina; AUDIO.sfx('buy'); this.toast('買咗' + it[0], '體力 ' + Math.round(player.stamina) + ' / 100', 2); after(); el.querySelector('p').textContent = '體力 ' + Math.round(player.stamina) + ' / 100 · 食嘢飲嘢可以回復體力。'; }));
+        save.stats.buys = (save.stats.buys || 0) + 1; addMoney(-it[1]); player.stamina = Math.min(100, player.stamina + it[2]); save.stamina = player.stamina; AUDIO.sfx('buy'); this.toast('買咗' + it[0], '體力 ' + Math.round(player.stamina) + ' / 100', 2); after(); el.querySelector('p').textContent = '體力 ' + Math.round(player.stamina) + ' / 100 · 食嘢飲嘢可以回復體力。'; }));
       return; }
     if (k === 'wear') {
       const cur = (save.outfit && save.outfit[save.char]) || CHARS[save.char].shirt;
@@ -183,10 +183,10 @@ const UI = {
   },
   stats() { const c = completion(); const row = (t, a) => '<span>' + t + '</span><b>' + a[0] + ' / ' + a[1] + '</b>';
     const bests = Object.keys(save.best).map(k => { const m = MISSIONS.find(q => q.id === k); return m ? '<span>' + esc(m.title) + ' 最佳</span><b>' + fmtT(save.best[k]) + '</b>' : ''; }).join('');
-    this.openDlg('<span class="eb" style="color:var(--accent)">統計</span><h2>完成度 ' + c.pct + '%</h2><div class="bar"><i style="width:' + c.pct + '%"></i></div><div class="stat">' + row('主線任務', c.main) + row('支線任務', c.side) + row('競速', c.race) + row('打工（每份完成 5 單）', c.job) + row('葡撻', c.tart) + row('地標打卡', c.lm) + '<span>現金</span><b>MOP ' + save.money.toLocaleString() + '</b>' + bests + '</div><div class="row"><button class="btn primary" type="button" data-close>關閉</button></div>', 'stats'); },
+    this.openDlg('<span class="eb" style="color:var(--accent)">統計</span><h2>完成度 ' + c.pct + '%</h2><div class="bar"><i style="width:' + c.pct + '%"></i></div><div class="stat">' + row('主線任務', c.main) + row('支線任務', c.side) + row('競速', c.race) + row('打工（每份完成 5 單）', c.job) + row('葡撻', c.tart) + row('街貓相', c.cat) + row('地標打卡', c.lm) + '<span>現金</span><b>MOP ' + save.money.toLocaleString() + '</b>' + bests + '</div><div class="row"><button class="btn primary" type="button" data-close>關閉</button></div>', 'stats'); },
   /* ---------- phone ---------- */
   phone(open) { if (open == null) open = !this.phoneOpen; this.phoneOpen = open; if (open) releaseLock(); else requestLock(); $('phone').hidden = !open; if (open) { $('phone').style.pointerEvents = 'none'; setTimeout(() => $('phone').style.pointerEvents = '', 380); } keys.clear(); if (open) { this.phoneHome(); AUDIO.sfx('door'); } },
-  APPS: [['任務', '#E0463A', '任'], ['地圖', '#2F8F5B', '圖'], ['打工', '#2BB37A', '工'], ['輕軌', '#21A598', '軌'], ['電台', '#8E6CC9', '♪'], ['相機', '#3B4A55', '◉'], ['統計', '#F08A24', '%'], ['角色', '#E8577A', '衫'], ['車房', '#C62828', '車'], ['成就', '#C9A04A', '★'], ['設定', '#5A656B', '⚙']],
+  APPS: [['任務', '#E0463A', '任'], ['地圖', '#2F8F5B', '圖'], ['打工', '#2BB37A', '工'], ['輕軌', '#21A598', '軌'], ['電台', '#8E6CC9', '♪'], ['相機', '#3B4A55', '◉'], ['統計', '#F08A24', '%'], ['角色', '#E8577A', '衫'], ['車房', '#C62828', '車'], ['成就', '#C9A04A', '★'], ['挑戰', '#3E8EDE', '!'], ['設定', '#5A656B', '⚙']],
   phoneHome() { const s = $('ph-scr'); const c = completion();
     s.innerHTML = '<div style="padding:16px 4px 4px"><div style="font-family:var(--f-mono);font-size:44px;font-weight:600;line-height:1">' + fmtClock(GAME.time) + '</div><div style="color:var(--ink-soft);font-size:13px;margin-top:4px">' + ENV.weather + ' ' + ENV.temp + '° · 完成度 ' + c.pct + '% · MOP ' + save.money.toLocaleString() + '</div></div>' +
       '<div class="apps">' + this.APPS.map(([n, col, ic]) => '<button class="app" type="button" data-app="' + n + '"><i style="background:' + col + '">' + ic + '</i>' + n + '</button>').join('') + '</div>';
@@ -196,6 +196,7 @@ const UI = {
     if (name === '地圖') { this.phone(false); this.openMap(); return; }
     if (name === '車房') { EX.appGarage(s, back); return; }
     if (name === '成就') { EX.appAch(s, back); return; }
+    if (name === '挑戰') { FUN.appDaily(s, back); return; }
     if (name === '設定') { this.phone(false); this.settings(); return; }
     if (name === '統計') { this.phone(false); this.stats(); return; }
     if (name === '角色') { this.phone(false); this.chars(); return; }
@@ -265,6 +266,7 @@ const UI = {
     const cs = Math.cos(rot), sn = Math.sin(rot); const P = (x, z) => { const dx = (x - px) * s, dz = (z - pz) * s; return [R + dx * cs - dz * sn, R + dx * sn + dz * cs]; };
     const dot = (x, z, col, r, txt, clampEdge) => { let [X, Z] = P(x, z); const dx = X - R, dz = Z - R, d = Math.hypot(dx, dz); if (d > R - r - 3) { if (!clampEdge) return; X = R + dx / d * (R - r - 3); Z = R + dz / d * (R - r - 3); }
       c.beginPath(); c.arc(X, Z, r, 0, 7); c.fillStyle = col; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.stroke(); if (txt) { c.fillStyle = '#fff'; c.font = '700 ' + Math.round(r * 1.2) + 'px ' + SIGN_FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, X, Z + 1); } };
+    for (const ct of FUN.cats) if (!save.cats.includes(ct.i) && Math.abs(ct.x - px) < 60 && Math.abs(ct.z - pz) < 60) dot(ct.x, ct.z, '#9AA3A8', 5, '');
     for (const st of LRT.stations) dot(st.ex, st.ez, '#21A598', 7, '軌');
     if (player.car && (player.car.dmg || 0) >= 30) for (const r of repairShops()) dot(r.x, r.z, '#8A5A2B', 8, '修', player.car.dmg >= 50);
     for (const l of LMS()) if (!save.lms.includes(l.id)) dot(l.x, l.z, '#F2C14E', 6);
