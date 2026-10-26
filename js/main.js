@@ -85,7 +85,7 @@ function pressKey(k) {
 function interact() {
   if (UI.sayOpen) { UI.sayNext(); return; }
   if (MS.nearStart) { UI.missionCard(MS.nearStart); return; }
-  if (player.mode !== 'foot') return;
+  if (player.mode === 'car') { const rs = nearRepair(); if (rs && Math.hypot(player.car.vx, player.car.vz) < 3) repairDialog(rs); return; }
   const st = nearStation(); if (st) { UI.lrt(st); return; }
   const sh = nearestShop(player.x, player.z, 6.5); if (sh) { UI.shop(sh); return; }
 }
@@ -155,7 +155,7 @@ function updateFoot(dt, inp) {
 let lastHit = 0;
 function updateCar(dt, inp) {
   const c = player.car; const spec = CARS[c.type]; const scooter = c.type === 'scooter'; const fx = Math.sin(c.th), fz = Math.cos(c.th), rx = Math.cos(c.th), rz = -Math.sin(c.th);
-  let vf = c.vx * fx + c.vz * fz, vl = c.vx * rx + c.vz * rz; const hb = inp.jump; const tune = 1 + .1 * (c.tune || 0); const maxV = spec.maxV * tune, acc = spec.acc * tune;
+  let vf = c.vx * fx + c.vz * fz, vl = c.vx * rx + c.vz * rz; const hb = inp.jump; const tune = 1 + .1 * (c.tune || 0); const dmgK = dmgSpeedFactor(c); const maxV = spec.maxV * tune * dmgK, acc = spec.acc * tune * (.5 + .5 * dmgK);
   if (!c.air) {
     if (inp.f > .05) { if (vf < -.5) vf += inp.f * 20 * dt; else vf += inp.f * acc * (1 - Math.max(0, vf) / maxV) * dt; }
     else if (inp.f < -.05) { if (vf > .5) vf += inp.f * 22 * dt; else vf = Math.max(scooter ? -4 : -11, vf + inp.f * 6 * dt); }
@@ -174,7 +174,7 @@ function updateCar(dt, inp) {
   for (const a of RACERS.list) { const dx = nx - a.x, dz = nz - a.z, d2 = dx * dx + dz * dz, rr = c.len * .6; if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); nx = a.x + dx / d * rr; nz = a.z + dz / d * rr; hit = true; hnx = dx / d; hnz = dz / d; a.v *= .7; } }
   for (const p of PARKED) { const dx = nx - p.x, dz = nz - p.z, d2 = dx * dx + dz * dz, rr = (c.len + CARS[p.type].len) * (p.type === 'scooter' ? .22 : .3); if (d2 < rr * rr && d2 > 1e-4) { const d = Math.sqrt(d2); nx = p.x + dx / d * rr; nz = p.z + dz / d * rr; hit = true; hnx = dx / d; hnz = dz / d; } }
   if (hit) { const vn = c.vx * hnx + c.vz * hnz; if (vn < 0) { c.vx -= vn * hnx * 1.35; c.vz -= vn * hnz * 1.35; } c.vx *= .75; c.vz *= .75; const imp = -vn;
-    if (imp > 7 && performance.now() - lastHit > 900) { lastHit = performance.now(); AUDIO.sfx('thump'); const cost = Math.round(imp * 3); addMoney(-cost); UI.toast('撞車！', '維修費 MOP ' + cost + '。', 2); } }
+    if (imp > 4.5 && performance.now() - lastHit > 600) { lastHit = performance.now(); carImpact(imp); } }
   c.x = nx; c.z = nz;
   const g = surfaceAt(c.x, c.z, c.y + .6);
   if (c.air) { c.vy -= 22 * dt; c.y += c.vy * dt; if (c.y <= g) { c.y = g; c.vy = 0; c.air = false; } }
@@ -215,7 +215,7 @@ function updatePrompt(dt) { promptT -= dt; if (promptT > 0) return; promptT = .1
     if (MS.nearStart) parts.push(keyHint('E', '互動') + ' 接任務：' + esc(MS.nearStart.title));
     if (foot) { const pc = nearParked(); if (pc) parts.push(keyHint('F', '上車') + (pc.type === 'scooter' ? ' 揸電單車' : pc.type === 'taxi' ? ' 揸的士' : ' 上車'));
       if (!MS.nearStart) { const st = nearStation(); if (st) parts.push(keyHint('E', '互動') + ' 搭輕軌 · ' + esc(st.name)); else { const sh = nearestShop(player.x, player.z, 6.5); if (sh) parts.push(keyHint('E', '互動') + ' 入去 ' + esc(sh.name) + (shopOpen(sh, GAME.time) ? '' : '（已收舖）')); } } }
-    else if (Math.hypot(player.car.vx, player.car.vz) < 1.5 && !parts.length) parts.push(keyHint('F', '落車') + ' 落車');
+    else { const rs = nearRepair(); if (rs && Math.hypot(player.car.vx, player.car.vz) < 3) parts.push(keyHint('E', '互動') + ' 維修 · ' + esc(rs.name)); else if (Math.hypot(player.car.vx, player.car.vz) < 1.5 && !parts.length) parts.push(keyHint('F', '落車') + ' 落車'); }
   }
   UI.prompt(parts.join(' · '));
   const lbl = player.mode; if (lbl !== lastLbl) { lastLbl = lbl; $('tb-f').textContent = foot ? '上車' : '落車'; $('tb-sp').textContent = foot ? '跳' : '手掣'; $('tb-run').hidden = !foot; document.querySelectorAll('#tb-row [data-mode]').forEach(b => b.hidden = b.dataset.mode !== lbl); }
@@ -235,9 +235,9 @@ function frame(now) {
         updateTraffic(dt, player.x, player.z, player.mode === 'car' ? player.car : null); updatePeds(dt, player.x, player.z, player.mode === 'car' ? player.car : null);
         updateMissions(dt); updateLights(dt); updateLRT(dt); updateTarts(GAME.clock);
         parkT -= dt; if (parkT <= 0) { parkT = 3; recycleParked(player.x, player.z); }
-        updatePrompt(dt);
+        updatePrompt(dt); smokeTick(dt); gpsTick(dt); honkTick(dt);
       }
-      updateCamera(dt); followSun(camTgt);
+      updateCamera(dt); feelCamera(dt); followSun(camTgt);
       UI.tick(dt); UI.hud(dt); if (GAME.frame % 10 === 0) updateLockHint(); if (GAME.frame % 3 === 0) UI.drawMini(); if (UI.mapOpen && GAME.frame % 20 === 0) UI.drawBig();
       const c = player.car; AUDIO.update(dt, player.mode === 'car' && !frozen, c ? c.vf || 0 : 0, c ? c.thr || 0 : 0, c ? Math.abs(c.vl || 0) : 0, c && c.type === 'sport');
       persistT -= dt; if (persistT <= 0) { persistT = 5; save.time = GAME.time; save.stamina = Math.round(player.stamina); persist(); }

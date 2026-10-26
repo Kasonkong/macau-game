@@ -78,7 +78,7 @@ const UI = {
       $('loc-pr').innerHTML = esc(pr) + (pt ? '<small>' + esc(pt.toUpperCase()) + '</small>' : ''); $('loc-st').textContent = st || (player.y > 8 && player.mode === 'car' && surfaceAt(px, pz, player.y + 1) > groundAt(px, pz) + 2 ? '跨海大橋' : '');
       $('clock').textContent = fmtClock(GAME.time) + ' · ' + ENV.weather + ' ' + ENV.temp + '°'; $('ph-time').textContent = fmtClock(GAME.time); }
     $('stam-v').style.width = player.stamina + '%'; $('stam-v').style.background = player.stamina < 25 ? 'var(--warn)' : 'var(--good)'; $('stam').hidden = player.mode === 'car' && player.stamina > 99;
-    const inCar = player.mode === 'car'; $('speedo').hidden = !inCar; if (inCar) { const c = player.car; $('spd').textContent = Math.round(Math.abs(c.vx * Math.sin(c.th) + c.vz * Math.cos(c.th)) * 3.6); }
+    const inCar = player.mode === 'car'; $('speedo').hidden = !inCar; if (inCar) { const c = player.car; $('spd').textContent = Math.round(Math.abs(c.vx * Math.sin(c.th) + c.vz * Math.cos(c.th)) * 3.6); ; const d = c.dmg || 0; const bi = $('dmgbar').firstChild; bi.style.width = d + '%'; bi.style.background = d >= 80 ? 'var(--main)' : d >= 50 ? 'var(--warn)' : 'var(--good)'; }
     const st = AUDIO.STATIONS[AUDIO.station]; const rv = inCar && AUDIO.ac && AUDIO.station > 0; $('radio').hidden = !rv; if (rv) $('radio').innerHTML = '♪ <b>' + esc(st.name) + '</b> ' + st.fm;
   },
   /* ---------- dialogs ---------- */
@@ -237,6 +237,7 @@ const UI = {
     const r = roadPos(x, z); if (r) setWaypoint(r.x, r.z, streetAt(r.x, r.z) || '目的地'); this.drawBig(); },
   icons(c, sx, sz, inView, mini) {
     const dot = (X, Z, col, r, txt) => { c.beginPath(); c.arc(X, Z, r, 0, 7); c.fillStyle = col; c.fill(); c.lineWidth = mini ? 2.5 : 2; c.strokeStyle = '#fff'; c.stroke(); if (txt) { c.fillStyle = '#fff'; c.font = '700 ' + Math.round(r * 1.15) + 'px ' + SIGN_FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, X, Z + 1); } };
+    for (const r of repairShops()) { const X = sx(r.x), Z = sz(r.z); if (inView(X, Z)) dot(X, Z, '#8A5A2B', mini ? 8 : 8, '修'); }
     for (const s of LRT.stations) { const X = sx(s.ex), Z = sz(s.ez); if (inView(X, Z)) { c.fillStyle = '#21A598'; c.strokeStyle = '#fff'; c.lineWidth = 2; c.beginPath(); c.rect(X - (mini ? 7 : 6), Z - (mini ? 7 : 6), mini ? 14 : 12, mini ? 14 : 12); c.fill(); c.stroke(); if (!mini && this.mv.s > .25) { c.fillStyle = '#0E3B36'; c.font = '600 11px ' + SIGN_FONT; c.textAlign = 'center'; c.fillText(s.name, X, Z - 11); } } }
     for (const l of LMS()) { if (save.lms.includes(l.id)) { if (!mini && !l.id.startsWith('b-')) { const X = sx(l.x), Z = sz(l.z); if (inView(X, Z)) { c.beginPath(); c.arc(X, Z, 4.5, 0, 7); c.fillStyle = 'rgba(242,193,78,.8)'; c.fill(); c.strokeStyle = '#1B1606'; c.lineWidth = 1.5; c.stroke(); if (this.mv.s > .3) { c.fillStyle = '#3a2c05'; c.font = '600 11px ' + SIGN_FONT; c.textAlign = 'center'; c.fillText(l.zh, X, Z - 9); } } } continue; }
       const X = sx(l.x), Z = sz(l.z); if (inView(X, Z)) dot(X, Z, '#F2C14E', mini ? 6 : 6); }
@@ -265,6 +266,7 @@ const UI = {
     const dot = (x, z, col, r, txt, clampEdge) => { let [X, Z] = P(x, z); const dx = X - R, dz = Z - R, d = Math.hypot(dx, dz); if (d > R - r - 3) { if (!clampEdge) return; X = R + dx / d * (R - r - 3); Z = R + dz / d * (R - r - 3); }
       c.beginPath(); c.arc(X, Z, r, 0, 7); c.fillStyle = col; c.fill(); c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.stroke(); if (txt) { c.fillStyle = '#fff'; c.font = '700 ' + Math.round(r * 1.2) + 'px ' + SIGN_FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, X, Z + 1); } };
     for (const st of LRT.stations) dot(st.ex, st.ez, '#21A598', 7, '軌');
+    if (player.car && (player.car.dmg || 0) >= 30) for (const r of repairShops()) dot(r.x, r.z, '#8A5A2B', 8, '修', player.car.dmg >= 50);
     for (const l of LMS()) if (!save.lms.includes(l.id)) dot(l.x, l.z, '#F2C14E', 6);
     if (!MS.cur && !MS.job) for (const mk of MKS()) if (missionAvailable(mk.m)) dot(mk.p.x, mk.p.z, MK_COLORS[mk.m.cat], 11, CAT_ICON[mk.m.cat], mk.m.cat === 'main');
     if (MS.navTarget) dot(MS.navTarget.x, MS.navTarget.z, '#2F7CF6', 9, '', true);

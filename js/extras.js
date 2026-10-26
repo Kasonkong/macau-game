@@ -128,7 +128,7 @@ EX.summon = function (i) { const g = save.garage[i]; if (!g) return;
   if (player.mode === 'car' && player.car.owned === i) { UI.toast('你就喺呢架車度', ''); return; }
   for (let k = PARKED.length - 1; k >= 0; k--) if (PARKED[k].owned != null) { world.remove(PARKED[k].mesh); PARKED.splice(k, 1); }
   const pc = spawnVehicleNear(g.type, g.hex, player.x, player.z, true); if (!pc) { UI.toast('叫唔到車', '附近冇路可以泊車。'); return; }
-  pc.tune = g.tune || 0; pc.owned = i; EX.summoned = pc; AUDIO.sfx('ok'); UI.toast('你架' + DEALER.find(d => d.type === g.type).name + '到咗', '泊咗喺最近嘅路邊，行過去按「上車」。', 3.5); };
+  pc.tune = g.tune || 0; pc.dmg = g.dmg || 0; pc.owned = i; EX.summoned = pc; AUDIO.sfx('ok'); UI.toast('你架' + DEALER.find(d => d.type === g.type).name + '到咗', '泊咗喺最近嘅路邊，行過去按「上車」。', 3.5); };
 EX.appGarage = function (s, back) {
   const own = save.garage.map((g, i) => { const d = DEALER.find(q => q.type === g.type); const tl = g.tune || 0;
     return '<div class="glass" style="padding:10px 12px;display:grid;gap:8px"><div style="display:flex;align-items:center;gap:10px"><span style="width:18px;height:18px;border-radius:50%;background:' + g.hex + ';border:2px solid rgb(255 255 255 / .4)"></span><b style="flex:1">' + d.name + '</b><span style="font-family:var(--f-mono);font-size:12px;color:var(--ink-soft)">引擎 Lv' + tl + ' · 極速 ' + topSpeed(g.type, tl) + ' km/h</span></div>' +

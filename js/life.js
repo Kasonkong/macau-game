@@ -153,3 +153,58 @@ LIFE.updateMore = function (dt) {
     if (d < 25) ch.group.rotation.y += (Math.atan2(Math.sin(Math.atan2(player.x - g.x, player.z - g.z) - ch.group.rotation.y), Math.cos(Math.atan2(player.x - g.x, player.z - g.z) - ch.group.rotation.y))) * Math.min(1, dt * 4);
     ch.armR.rotation.x = d < 9 ? -2.7 + Math.sin(EX.time.value * 7) * .35 : 0; ch.armR.rotation.z = d < 9 ? .25 : 0; ch.torso.position.y = 1.23 + Math.sin(EX.time.value * 2 + g.x) * .01; }
 };
+
+/* ---------- v2.4: speed feel, damage & repair, GPS turn instructions, honking traffic ---------- */
+const FEEL = { shake: 0, fov: 62 };
+function feelCamera(dt) { // called after updateCamera
+  const c = player.car; const spd = c ? Math.hypot(c.vx, c.vz) : 0; const want = 62 + clamp(spd - 14, 0, 40) * .32;
+  FEEL.fov += (want - FEEL.fov) * Math.min(1, dt * 2.5); if (Math.abs(camera.fov - FEEL.fov) > .05) { camera.fov = FEEL.fov; camera.updateProjectionMatrix(); }
+  if (FEEL.shake > 0) { const k = FEEL.shake * FEEL.shake * .35; camera.position.x += (Math.random() - .5) * k; camera.position.y += (Math.random() - .5) * k; camera.position.z += (Math.random() - .5) * k; FEEL.shake = Math.max(0, FEEL.shake - dt * 2.2); }
+  else if (c && spd > 30 && !c.air) { const k = (spd - 30) * .0009; camera.position.y += (Math.random() - .5) * k; } }
+const REPAIR = { shops: null };
+function repairShops() { if (!REPAIR.shops) REPAIR.shops = SHOPS.filter(s => /car_repair|s:car$|motorcycle/.test(s.cat)).map(s => Object.assign({}, s, snapRoad(s))); return REPAIR.shops; }
+function nearRepair(r) { for (const s of repairShops()) if (Math.hypot(s.x - player.x, s.z - player.z) < (r || 14)) return s; return null; }
+function carImpact(imp) { // replaces the old flat repair fee: impacts now damage the vehicle
+  const c = player.car; if (!c) return; FEEL.shake = Math.min(1, Math.max(FEEL.shake, imp / 16)); AMB.crash(imp);
+  const before = c.dmg || 0; c.dmg = Math.min(100, before + imp * (c.type === 'sport' ? 2.6 : c.type === 'van' || c.type === 'bus' ? 1.5 : 2.1));
+  if (c.owned != null && save.garage[c.owned]) { save.garage[c.owned].dmg = Math.round(c.dmg); persist(); }
+  for (const [t, msg] of [[50, '車身損壞 50%：去維修舖（地圖上「修」字）整返'], [80, '車輛嚴重損壞，車速會變慢'], [100, '架車壞咗！只可以慢慢揸去維修舖，或者揾第二架車']]) if (before < t && c.dmg >= t) { UI.toast('撞車！', msg, 3.5); return; }
+  UI.toast('撞車！', '損壞 ' + Math.round(c.dmg) + '%', 1.6); }
+function dmgSpeedFactor(c) { const d = c.dmg || 0; return d >= 100 ? .3 : 1 - Math.max(0, d - 50) / 100; }
+function repairDialog(s) { const c = player.car; const d = Math.round(c.dmg || 0); const cost = Math.max(30, d * 6);
+  const el = UI.openDlg('<span class="eb" style="color:var(--accent)">維修舖</span><h2>' + esc(s.name) + '</h2><p>' + (d < 1 ? '架車冇乜損壞，唔使整。' : '損壞 ' + d + '%，修理費 MOP ' + cost + '。') + '</p><div class="row">' + (d >= 1 ? '<button class="btn primary" id="rp" type="button">維修 · MOP ' + cost + '</button>' : '') + '<button class="btn" type="button" data-close>離開</button></div>', 'repair');
+  const b = el.querySelector('#rp'); if (b) b.addEventListener('click', () => { if (save.money < cost) { UI.toast('唔夠錢', '修理費 MOP ' + cost + '。', 2); return; } addMoney(-cost); c.dmg = 0; if (c.owned != null && save.garage[c.owned]) { save.garage[c.owned].dmg = 0; persist(); } AUDIO.sfx('buy'); UI.closeDlg(); UI.toast('整好晒', '架車好返晒。', 2.5); }); }
+// smoke from damaged cars
+const SMOKE = { list: [], mat: null, t: 0 };
+function smokeTick(dt) { const c = player.car;
+  if (!SMOKE.mat) { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const x = cv.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); SMOKE.mat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false });
+    for (let i = 0; i < 40; i++) { const s = new THREE.Sprite(SMOKE.mat.clone()); s.visible = false; world.add(s); SMOKE.list.push({ s, life: 0 }); } }
+  if (c && (c.dmg || 0) >= 60) { SMOKE.t -= dt; if (SMOKE.t <= 0) { SMOKE.t = c.dmg >= 100 ? .06 : .14; const p = SMOKE.list.find(q => q.life <= 0); if (p) { const fx = Math.sin(c.th), fz = Math.cos(c.th); p.s.position.set(c.x + fx * (c.len / 2 - .6), c.y + 1.1, c.z + fz * (c.len / 2 - .6)); p.life = 1.6; p.v = .8 + Math.random() * .6; p.s.material.color.setScalar(c.dmg >= 100 ? .18 : .62); p.s.visible = true; } } }
+  for (const p of SMOKE.list) { if (p.life <= 0) continue; p.life -= dt; p.s.position.y += p.v * dt; const a = 1 - p.life / 1.6; p.s.scale.setScalar(.8 + a * 2.6); p.s.material.opacity = .55 * (1 - a); if (p.life <= 0) p.s.visible = false; } }
+// GPS: next turn along the navigation route
+const GPS = { route: null, turns: [], t: 0 };
+function gpsPrep(R) { GPS.route = R; GPS.turns = []; if (!R || R.length < 3) return; const cum = [0]; for (let i = 1; i < R.length; i++) cum.push(cum[i - 1] + Math.hypot(R[i][0] - R[i - 1][0], R[i][1] - R[i - 1][1])); GPS.cum = cum;
+  const at = s => { let i = 1; while (i < R.length - 1 && cum[i] < s) i++; const t = (s - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1); return [R[i - 1][0] + (R[i][0] - R[i - 1][0]) * t, R[i - 1][1] + (R[i][1] - R[i - 1][1]) * t]; };
+  let last = -1e9;
+  for (let i = 1; i < R.length - 1; i++) { const s = cum[i]; if (s - last < 25) continue; const a = at(s - 12), b = R[i], c = at(s + 12); const d1 = [b[0] - a[0], b[1] - a[1]], d2 = [c[0] - b[0], c[1] - b[1]]; const l1 = Math.hypot(...d1) || 1, l2 = Math.hypot(...d2) || 1;
+    const cosA = (d1[0] * d2[0] + d1[1] * d2[1]) / l1 / l2; if (cosA > .72) continue; const cr = d1[0] * d2[1] - d1[1] * d2[0]; const p = at(s + 20); GPS.turns.push({ s, i, dir: cosA < -.5 ? 'u' : cr > 0 ? 'r' : 'l', street: streetAt(p[0], p[1]) }); last = s; } }
+function gpsTick(dt) { const el = $('gps'); if (!el) return; GPS.t -= dt; if (GPS.t > 0) return; GPS.t = .3;
+  const R = MS.route; if (!R || !MS.navTarget) { el.hidden = true; return; } if (R !== GPS.route) gpsPrep(R);
+  let bi = 0, bd = 1e18; for (let i = 0; i < R.length; i++) { const d = (R[i][0] - player.x) ** 2 + (R[i][1] - player.z) ** 2; if (d < bd) { bd = d; bi = i; } }
+  const sNow = GPS.cum ? GPS.cum[bi] : 0; const total = GPS.cum ? GPS.cum[GPS.cum.length - 1] - sNow : 0; const nt = GPS.turns.find(t => t.s > sNow + 4);
+  const arrow = { l: '↰', r: '↱', u: '↶' }, word = { l: '左轉', r: '右轉', u: '掉頭' }; let txt;
+  if (total < 60) txt = '<b>◎</b> 目的地就喺前面';
+  else if (nt && nt.s - sNow < 600) { const d = Math.round((nt.s - sNow) / 10) * 10; txt = '<b>' + arrow[nt.dir] + '</b> ' + (d < 20 ? '而家' : d + ' 米後') + word[nt.dir] + (nt.street ? ' · 入 ' + esc(nt.street) : ''); }
+  else txt = '<b>↑</b> 直行 ' + (total > 1000 ? (total / 1000).toFixed(1) + ' 公里' : Math.round(total / 10) * 10 + ' 米');
+  el.innerHTML = txt; el.hidden = false; }
+// traffic honks when the player blocks it
+function honkTick(dt) { for (const t of TRAFFIC) { if (!t.alive) continue; t.honkT = (t.honkT || 0) - dt; const dx = player.x - t.x, dz = player.z - t.z; if (Math.abs(dx) > 30 || Math.abs(dz) > 30) { t.blockT = 0; continue; }
+    const fx = Math.sin(t.th), fz = Math.cos(t.th); const ah = dx * fx + dz * fz, lat = Math.abs(dx * fz - dz * fx); const blocked = ah > 0 && ah < 14 && lat < 2.4 && t.v < .6 && redLightAhead(t.x, t.z, fx, fz, 4) > 30;
+    t.blockT = blocked ? (t.blockT || 0) + dt : 0; if (t.blockT > 2.5 && t.honkT <= 0) { t.honkT = 5 + Math.random() * 3; AMB.horn(clamp(1 - Math.hypot(dx, dz) / 40, .2, 1), t.type); } } }
+Object.assign(AMB, {
+  crash(imp) { const ac = AUDIO.ac; if (!ac) return; const t = ac.currentTime; const v = clamp(imp / 18, .15, 1);
+    const s = ac.createBufferSource(); s.buffer = AUDIO.noise; const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = .7; const g = ac.createGain(); g.gain.setValueAtTime(.45 * v, t); g.gain.exponentialRampToValueAtTime(.001, t + .35); s.connect(f).connect(g).connect(AUDIO.master); s.start(t, Math.random() * .5); s.stop(t + .4);
+    AUDIO.sfx('thump'); if (imp > 10) for (let i = 0; i < 4; i++) AUDIO.tone(2400 + Math.random() * 2600, t + .05 + i * .04, .12, 'triangle', .03 * v); },
+  horn(vol, type) { const ac = AUDIO.ac; if (!ac) return; const t = ac.currentTime; const f0 = type === 'bus' ? 220 : type === 'scooterR' ? 520 : 330 + Math.random() * 60; const d = .25 + Math.random() * .3;
+    for (const f of [f0, f0 * 1.26]) AUDIO.tone(f, t, d, 'square', .035 * vol); if (Math.random() < .5) for (const f of [f0, f0 * 1.26]) AUDIO.tone(f, t + d + .12, d * .7, 'square', .035 * vol); }
+});
