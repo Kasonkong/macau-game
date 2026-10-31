@@ -37,13 +37,13 @@ function updateEnv(dt, timeMin, focus) {
   renderer.setClearColor(sky); scene.fog.color.copy(sky);
   const far = lerp(3600, 2300, ENV.night) * (1 - ENV.rain * .55); scene.fog.near = far * .12; scene.fog.far = far;
   MAT.sea.color.copy(P.sea); MAT.seabed.color.copy(P.seaDeep); MAT.lake.color.copy(P.sea); MAT.land.color.copy(P.land); MAT.mainland.color.copy(P.mainland); MAT.park.color.copy(P.park);
-  MAT.road.color.copy(P.road); MAT.runway.color.copy(P.runway); MAT.roof.color.copy(P.roofbox); MAT.side.color.setScalar(lerp(1, .45, ENV.night));
+  MAT.road.color.copy(P.road); MAT.runway.color.copy(P.runway); MAT.roof.color.copy(P.roofbox); MAT.side.color.setScalar(lerp(1, .45, ENV.night)); if (MAT.plaza) MAT.plaza.color.copy(MAT.side.color);
   hemi.color.copy(P.hemiSky).lerp(C('#FFD7B0'), ENV.dusk * .4); hemi.groundColor.copy(P.hemiGnd); hemi.intensity = P.hemi * (1 - cloud * .15);
   sun.color.copy(P.sun).lerp(C('#FFB074'), ENV.dusk * .7); sun.intensity = P.sunI * (1 - cloud * .65);
   if (ENV.night < .5) SUN_DIR.set(Math.cos(th) * .85, Math.max(.18, alt) , .42).normalize(); else SUN_DIR.set(-.3, .8, .4).normalize();
   FU.uNight.value = ENV.night; FU.uWet.value = ENV.wetT;
   for (const [m, e] of glowMats) m.emissive.set(e).multiplyScalar(ENV.night);
-  LAMPS.headMat && LAMPS.headMat.emissive.setRGB(1, .82, .55).multiplyScalar(ENV.night * 1.2);
+  LAMPS.headMat && LAMPS.headMat.emissive.setRGB(1, .82, .55).multiplyScalar(ENV.night * 1.2); LAMPS.lanternMat && LAMPS.lanternMat.emissive.setRGB(1, .78, .45).multiplyScalar(ENV.night * 1.5);
   SIGNS.glow.value = 0.08 + ENV.night * 0.95;
   if (rainLines) { rainLines.visible = ENV.rain > .05; rainLines.material.opacity = .45 * ENV.rain; if (rainLines.visible) { const p = rainLines.geometry.attributes.position.array; for (let i = 0; i < p.length; i += 6) { p[i + 1] -= dt * 28; p[i + 4] -= dt * 28; if (p[i + 1] < 0) { p[i + 1] += 40; p[i + 4] += 40; } } rainLines.geometry.attributes.position.needsUpdate = true; rainLines.position.set(focus.x, focus.y - 8, focus.z); } }
 }
@@ -98,6 +98,7 @@ function drawSign(r) {
   } else if (r.kind === 3) { // bus stop
     c.fillStyle = bg; c.fillRect(0, 0, SW_, SH_); c.fillStyle = '#0F4C81'; c.fillRect(0, 0, 54, 64); c.fillStyle = '#fff'; c.font = '700 26px ' + SIGN_FONT; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('巴士', 27, 33);
     c.fillStyle = fg; fitFont(c, r.text, 190, 30, '700', SIGN_FONT); c.fillText(r.text, 155, 34);
+  } else if (r.kind === 5) { drawAzulejo(c, r);
   } else if (r.kind === 4) { // LRT station
     c.fillStyle = '#F4F7F6'; c.fillRect(0, 0, SW_, SH_); c.fillStyle = '#21A598'; c.fillRect(0, 0, SW_, 10); c.fillRect(0, 54, SW_, 10);
     c.fillStyle = '#1B2B2A'; c.textAlign = 'center'; c.textBaseline = 'middle'; fitFont(c, r.text, 230, 34, '700', SIGN_FONT); c.fillText(r.text, 128, 33);
@@ -128,12 +129,12 @@ function updateSigns(fx, fz, force) {
   SIGNS.active = want.filter(r => SIGNS.slotOf.has(r));
   const aSlot = SIGNS.face.geometry.attributes.aSlot, aVert = SIGNS.face.geometry.attributes.aVert; let k = 0; const bc = new THREE.Color();
   for (const r of SIGNS.active) { if (!r._drawn) continue;
-    const vert = r.kind === 1; const off = vert ? 0 : (r.kind === 2 ? .03 : .085);
+    const vert = r.kind === 1; const off = vert ? 0 : (r.kind === 2 || r.kind === 5 ? .03 : .085);
     const sn = Math.sin(r.ang), cs = Math.cos(r.ang);
     _so.position.set(r.x + sn * off, r.y, r.z + cs * off); _so.rotation.set(0, r.ang, 0); _so.scale.set(r.w, r.h, 1); _so.updateMatrix(); SIGNS.face.setMatrixAt(k, _so.matrix);
     aSlot.array[k] = SIGNS.slotOf.get(r); aVert.array[k] = vert ? 1 : 0;
-    const bd = vert ? .22 : r.kind === 2 ? .05 : .14; _so.position.set(r.x - sn * (vert ? 0 : bd / 2 - off * .5), r.y, r.z - cs * (vert ? 0 : bd / 2 - off * .5)); if (vert) _so.scale.set(.0001, .0001, .0001); else _so.scale.set(r.w + .1, r.h + .1, bd); _so.updateMatrix(); SIGNS.back.setMatrixAt(k, _so.matrix);
-    SIGNS.back.setColorAt(k, bc.setHex(r.kind === 2 ? 0x2a2620 : r.kind === 3 ? 0x0F4C81 : r.kind === 4 ? 0x21A598 : 0x2B2B2B));
+    const bd = vert ? .22 : r.kind === 2 || r.kind === 5 ? .05 : .14; _so.position.set(r.x - sn * (vert ? 0 : bd / 2 - off * .5), r.y, r.z - cs * (vert ? 0 : bd / 2 - off * .5)); if (vert) _so.scale.set(.0001, .0001, .0001); else _so.scale.set(r.w + .1, r.h + .1, bd); _so.updateMatrix(); SIGNS.back.setMatrixAt(k, _so.matrix);
+    SIGNS.back.setColorAt(k, bc.setHex(r.kind === 5 ? 0xE9E9E3 : r.kind === 2 ? 0x2a2620 : r.kind === 3 ? 0x0F4C81 : r.kind === 4 ? 0x21A598 : 0x2B2B2B));
     k++; }
   SIGNS.face.count = k; SIGNS.back.count = k; aSlot.needsUpdate = true; aVert.needsUpdate = true; SIGNS.face.instanceMatrix.needsUpdate = true; SIGNS.back.instanceMatrix.needsUpdate = true; if (SIGNS.back.instanceColor) SIGNS.back.instanceColor.needsUpdate = true;
 }
@@ -188,6 +189,16 @@ function buildLamps() {
     while (s < rd.len) { const p = roadPoint(rd, s); const nx = -p[4], nz = p[3]; for (const sd of sides) { const off = rd.hw + (rd.br ? .4 : 1.1); const x = p[0] + nx * off * sd, z = p[1] + nz * off * sd; const y = rd.br ? p[2] : groundAt(x, z); if (!rd.br && !isLand(x, z)) continue; pts.push([x, y, z, Math.atan2(-nx * sd, -nz * sd)]); } s += sp; }
     if (pts.length > 9000) break; }
   LAMPS.pts = pts;
+  // historic centres get black cast-iron lantern posts; everywhere else modern arm lamps
+  const HC = [['senado', 900], ['stpaul', 500], ['cunha', 420], ['chapel', 350], ['ama', 350]].map(([k, r]) => { const p = PL(k); return p && [p.x, p.z, r]; }).filter(Boolean);
+  const isHist = (x, z) => HC.some(h => Math.hypot(h[0] - x, h[1] - z) < h[2]);
+  const hp = pts.filter(p => isHist(p[0], p[2])); const mp = pts.filter(p => !isHist(p[0], p[2]));
+  if (hp.length) { const iron = new THREE.MeshStandardMaterial({ color: 0x1d2022, roughness: .5, metalness: .6 });
+    const post = new THREE.InstancedMesh(partsGeo([{ g: new THREE.CylinderGeometry(.22, .28, .6, 8), y: .3 }, { g: new THREE.CylinderGeometry(.07, .11, 3.6, 8), y: 2.4 }, { g: new THREE.CylinderGeometry(.16, .1, .25, 8), y: 4.3 }, { g: new THREE.ConeGeometry(.32, .35, 4), y: 5.25 }, { g: new THREE.SphereGeometry(.07, 6, 4), y: 5.5 }]), iron, hp.length);
+    LAMPS.lanternMat = new THREE.MeshStandardMaterial({ color: 0xf3e6c4, roughness: .3, emissive: 0x000000, transparent: true, opacity: .92 });
+    const lan = new THREE.InstancedMesh(new THREE.CylinderGeometry(.26, .19, .62, 4).rotateY(Math.PI / 4).translate(0, 4.75, 0), LAMPS.lanternMat, hp.length); const oo = new THREE.Object3D();
+    hp.forEach((p, i) => { oo.position.set(p[0], p[1], p[2]); oo.rotation.set(0, p[3], 0); oo.updateMatrix(); post.setMatrixAt(i, oo.matrix); lan.setMatrixAt(i, oo.matrix); }); for (const m of [post, lan]) { m.frustumCulled = false; m.castShadow = m === post; world.add(m); } }
+  pts.length = 0; for (const p of mp) pts.push(p); LAMPS.pts = mp.concat(hp.map(p => [p[0] - Math.sin(p[3]) * 1.55, p[1], p[2] - Math.cos(p[3]) * 1.55, p[3]]));
   const o = new THREE.Object3D();
   const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(.08, .13, 8, 6).translate(0, 4, 0), new THREE.MeshStandardMaterial({ color: 0x55595c, roughness: .6, metalness: .35 }), pts.length);
   const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(.08, .08, 1.6).translate(0, 7.9, .75), pole.material, pts.length);

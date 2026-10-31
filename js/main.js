@@ -18,8 +18,8 @@ async function boot() {
     W = await loadJSON('macau-world.json', .42, .52, '下載商舖同街道');
     Q = D.q; BASE = D.base; G = D.grid; GW = G.w; GH = G.h; HG = new Float32Array(GW * GH);
     { const raw = atob(G.data); for (let i = 0; i < GW * GH; i++) { const v = raw.charCodeAt(2 * i) | (raw.charCodeAt(2 * i + 1) << 8); HG[i] = v === 65535 ? -1 : v / 10; } }
-    const steps = [['地形同海岸線', buildLand], ['道路同行人路', buildRoads], ['立面材質', makeFacadeMat], ['建築物同舖面', buildBuildings], ['重點地標', buildLandmarks], ['樹木', buildTrees], ['碰撞同路網', buildIndices],
-      ['街道同堂區', buildPlaces], ['地圖', buildMapCanvas], ['真實商舖', buildShops], ['招牌同大廈名牌', buildSigns], ['交通燈', buildLights], ['巴士站', buildStops], ['路燈', buildLamps], ['輕軌', buildLRT], ['葡撻', buildTarts],
+    const steps = [['地形同海岸線', buildLand], ['道路', buildRoads], ['行人路、斑馬線同路緣', buildStreets], ['立面材質', makeFacadeMat], ['建築物同舖面', buildBuildings], ['重點地標', buildLandmarks], ['樹木', buildTrees], ['碰撞同路網', buildIndices], ['葡式碎石廣場', buildPlazas],
+      ['街道同堂區', buildPlaces], ['地圖', buildMapCanvas], ['真實商舖', buildShops], ['招牌同大廈名牌', buildSigns], ['街道名牌', addStreetSigns], ['交通燈', buildLights], ['巴士站', buildStops], ['路燈', buildLamps], ['輕軌', buildLRT], ['葡撻', buildTarts],
       ['天氣', buildRain], ['車流', buildTraffic], ['行人', buildPeds], ['天空同路燈光暈', EX.build], ['街景細節', LIFE.build], ['地標燈光同任務角色', LIFE.buildMore], ['街貓同煙花', FUN.build], ['角色', buildPlayer], ['任務', buildMarkers]];
     for (let i = 0; i < steps.length; i++) { progress('建造' + steps[i][0], .52 + .46 * i / steps.length); await tick0(); await steps[i][1](); }
     ENV.weather = '晴'; ENV.nextWeather = 300 + Math.random() * 300; player.stamina = save.stamina != null ? save.stamina : 100;

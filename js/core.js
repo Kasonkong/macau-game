@@ -215,25 +215,53 @@ const RW = [11, 8.5, 7, 5.2];
 const ROADS = [];
 function roadShader(sh) {
   sh.uniforms.uNight = FU.uNight; sh.uniforms.uWet = FU.uWet;
-  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 ruv;\nvarying vec3 vR;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvR=ruv;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vR;uniform float uNight;uniform float uWet;')
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec3 ruv;attribute vec2 rj;\nvarying vec3 vR;varying vec2 vJ;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvR=ruv;vJ=rj;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying vec3 vR;varying vec2 vJ;uniform float uNight;uniform float uWet;
+float rh(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+float band(float x,float a,float b,float f){return smoothstep(a-f,a,x)*(1.0-smoothstep(b,b+f,x));}`)
   .replace('#include <color_fragment>', `#include <color_fragment>
-float kind=floor(vR.z/10.0+.001);float cls=vR.z-kind*10.0;float rl=0.0;float av=abs(vR.y);
+float kind=floor(vR.z/10.0+.001);float cls=vR.z-kind*10.0;float code=floor(vR.z+.001);float rl=0.0;float av=abs(vR.y);float paveLit=0.0;
 if(kind>2.5){
-  vec2 t=fract(vec2(vR.x*.9,av*2.6));float joint=step(t.x,.05)+step(t.y,.07);
-  diffuseColor.rgb=mix(vec3(.68,.66,.62),vec3(.6,.58,.55),clamp(joint,0.,1.));
-  float curb=smoothstep(.0,.08,av-1.0)*(1.0-smoothstep(.08,.16,av-1.0));
-  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.8,.79,.76),curb);
-}else if(kind<1.5){float fv=fwidth(vR.y)*1.5;float fade=clamp(1.0-fv*3.0,0.0,1.0);
- float dash=step(fract(vR.x/9.0),.5);
- float edge=smoothstep(.80-fv,.80,av)*(1.0-smoothstep(.87,.87+fv,av));
- float cen=(1.0-smoothstep(.035,.035+fv,av))*(cls<1.5?1.0:dash);
- float lane=cls<.5?(1.0-smoothstep(.035,.035+fv,abs(av-.42)))*dash:0.0;
- rl=(cls<2.5?max(edge,max(cen,lane)):edge*.6)*fade;
- diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.93,.93,.9),rl*.85);}
+  vec2 q=vR.xy;vec3 c;
+  if(code<30.5){vec2 t=fract(q/.6);float jn=step(t.x,.04)+step(t.y,.04);c=mix(vec3(.68,.66,.62),vec3(.56,.54,.51),clamp(jn,0.,1.));c*=.96+.08*rh(floor(q/.6));}
+  else if(code<31.5){vec2 g=q*9.0;vec2 f=fract(g);float st=rh(floor(g));float gap=step(min(min(f.x,f.y),min(1.0-f.x,1.0-f.y)),.09)*clamp(1.0-length(fwidth(g))*1.6,0.0,1.0);
+    float wv=sin((q.x+sin(q.y*1.7)*.9)*.9);float dark=smoothstep(.9,.93,wv)*step(.18,q.y);c=mix(vec3(.87,.85,.8),vec3(.17,.17,.18),dark)*(.92+.12*st);c=mix(c,c*.62,gap);}
+  else if(code<32.5){vec2 g=vec2(q.x/.22,q.y/.11);g.x+=step(1.0,mod(floor(g.y),2.0))*.5;vec2 f=fract(g);float gap=(step(f.x,.06)+step(f.y,.1))*clamp(1.0-length(fwidth(g))*1.4,0.0,1.0);c=mix(vec3(.6,.32,.25),vec3(.5,.27,.22),rh(floor(g)));c=mix(c,vec3(.55,.53,.5),clamp(gap,0.,1.));}
+  else if(code<33.5){c=vec3(.72,.71,.68)*(.94+.08*rh(floor(vec2(vR.x*1.5,0.))));}
+  else{vec2 p=q;float w=sin(p.x*.28+sin(p.y*.16)*2.4+sin(p.y*.045)*1.5);vec2 g=p*8.0;vec2 f=fract(g);float st=rh(floor(g));float gap=step(min(min(f.x,f.y),min(1.0-f.x,1.0-f.y)),.1)*clamp(1.0-length(fwidth(g))*1.6,0.0,1.0);
+    c=mix(vec3(.88,.86,.81),vec3(.14,.14,.15),smoothstep(.5,.56,w))*(.92+.12*st);c=mix(c,c*.6,gap);}
+  diffuseColor.rgb=c;paveLit=1.0;
+}else if(kind<1.5){
+  float fv=fwidth(vR.y)*1.5;float fade=clamp(1.0-fv*3.0,0.0,1.0);
+  float hwv=(cls<.5?5.5:cls<1.5?4.25:cls<2.5?3.5:2.6)*(kind>.5?1.15:1.0);float lat=vR.y*hwv;float jd=vJ.x;float jdir=vJ.y;
+  // worn asphalt, patch repairs and tyre tracks
+  float n1=rh(floor(vec2(vR.x*1.7,lat*1.7)));diffuseColor.rgb*=.93+.11*n1;
+  float pc=rh(vec2(floor(vR.x/23.0),floor(lat/2.6)+cls*7.0));diffuseColor.rgb*=1.0-.13*step(.84,pc)*step(fract(vR.x/23.0),.33);
+  float lane=hwv/(cls<.5?4.0:2.0);float tr=abs(fract(lat/lane)-.5);diffuseColor.rgb*=1.0-.05*band(tr,.18,.3,.04);
+  float ok=smoothstep(4.4,4.9,jd);float inJ=step(.15,jd);
+  float dash=step(fract(vR.x/9.0),.5);
+  float edge=band(av,.80,.87,fv)*inJ;
+  float cen=(1.0-smoothstep(.035,.035+fv,av))*(cls<1.5?1.0:dash)*ok;
+  float ln=cls<.5?(1.0-smoothstep(.035,.035+fv,abs(av-.5)))*dash*ok:0.0;
+  vec3 white=vec3(.93,.93,.9),yel=vec3(.93,.74,.2);
+  float wl=(cls<2.5?max(cen,ln):0.0)+(cls<.5||kind>.5?edge:0.0);float yl=(cls>.5&&cls<2.5&&kind<.5)?edge:0.0;
+  // junction approach: zebra crossing and stop line on the approach (left-hand traffic) half
+  float app=kind<.5&&cls<2.5?1.0:0.0;
+  float zeb=app*band(jd,.9,3.7,.02)*step(.5,fract(lat/1.1+.25))*step(av,.94);
+  float stop=app*band(jd,4.15,4.6,.02)*step(0.0,-vR.y*jdir)*step(av,.94);
+  wl=max(wl,max(zeb,stop));
+  // drains along the kerb and manholes
+  float dr=step(.9,av)*step(av,.985)*step(fract(vR.x/14.0),.05)*inJ;float slot=step(.5,fract(vR.x*7.0));
+  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.2,.2,.21)*(.7+.5*slot),dr);
+  vec2 mc=vec2(fract(vR.x/37.0)*37.0-18.0,lat-(rh(vec2(floor(vR.x/37.0),cls))-.5)*hwv);float mh=1.0-smoothstep(.33,.36,length(mc));
+  diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.3,.3,.31)*(.85+.3*step(.5,fract((mc.x+mc.y)*5.0))),mh*inJ*.9);
+  rl=clamp(wl+yl,0.0,1.0)*fade;
+  diffuseColor.rgb=mix(diffuseColor.rgb,mix(white,yel,yl/(wl+yl+.001)),rl*.88);
+}
 diffuseColor.rgb*=1.0-uWet*.28;`)
   .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor=mix(roughnessFactor,.22,uWet*step(kind,1.5));')
-  .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vec3(1.0,.72,.4)*uNight*(kind<1.5?(cls<1.5?.11:.06):(kind>2.5?.035:0.0))+rl*uNight*.05;');
+  .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance+=vec3(1.0,.72,.4)*uNight*(kind<1.5?(cls<1.5?.11:.06):(paveLit*.035))+rl*uNight*.05;');
 }
 function buildRoads() {
   MAT.road = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: .95, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
@@ -250,14 +278,14 @@ function buildRoads() {
     const L = [], R = [], U = [0];
     for (let k = 1; k < pts.length; k++) U.push(U[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
     ROADS.push({ cls, br, pts, cum: U, len: U[U.length - 1], hw });
-    const sw = (!br && cls >= 1) ? (cls === 3 ? 1.8 : 2.6) : 0;
+    const sw = 0; // pavements are built by buildStreets()
     const NRM = [];
     for (let k = 0; k < pts.length; k++) { const a = pts[Math.max(0, k - 1)], b = pts[Math.min(pts.length - 1, k + 1)]; let dx = b[0] - a[0], dz = b[1] - a[1]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; const nx = -dz, nz = dx; NRM.push([nx, nz]);
       L.push([pts[k][0] + nx * hw, pts[k][2], pts[k][1] + nz * hw, nx, nz]); R.push([pts[k][0] - nx * hw, pts[k][2], pts[k][1] - nz * hw]); }
     const ct = br ? 1.32 : 1, f = cls + (br ? 10 : 0);
     for (let k = 0; k < pts.length - 1; k++) { const l0 = L[k], l1 = L[k + 1], r0 = R[k], r1 = R[k + 1], u0 = U[k], u1 = U[k + 1];
-      push(l0[0], l0[1], l0[2], 0, 1, 0, ct, u0, 1, f); push(l1[0], l1[1], l1[2], 0, 1, 0, ct, u1, 1, f); push(r0[0], r0[1], r0[2], 0, 1, 0, ct, u0, -1, f);
-      push(r0[0], r0[1], r0[2], 0, 1, 0, ct, u0, -1, f); push(l1[0], l1[1], l1[2], 0, 1, 0, ct, u1, 1, f); push(r1[0], r1[1], r1[2], 0, 1, 0, ct, u1, -1, f);
+      if (br) { push(l0[0], l0[1], l0[2], 0, 1, 0, ct, u0, 1, f); push(l1[0], l1[1], l1[2], 0, 1, 0, ct, u1, 1, f); push(r0[0], r0[1], r0[2], 0, 1, 0, ct, u0, -1, f);
+      push(r0[0], r0[1], r0[2], 0, 1, 0, ct, u0, -1, f); push(l1[0], l1[1], l1[2], 0, 1, 0, ct, u1, 1, f); push(r1[0], r1[1], r1[2], 0, 1, 0, ct, u1, -1, f); }
       if (sw) { const e = 1 + sw / hw; const y0 = pts[k][2] - 0.02, y1 = pts[k + 1][2] - 0.02;
         for (const s of [1, -1]) { const n0 = NRM[k], n1 = NRM[k + 1];
           const a0 = [pts[k][0] + n0[0] * hw * s, pts[k][1] + n0[1] * hw * s], b0 = [pts[k][0] + n0[0] * (hw + sw) * s, pts[k][1] + n0[1] * (hw + sw) * s];
@@ -274,9 +302,9 @@ function buildRoads() {
       if (acc >= 50) { acc = 0; const g = heightAt(pts[k][0], pts[k][1]); const bot = g < 0 ? -6 : g; const top = pts[k][2] - 1.7; if (top - bot > 3) piers.push([pts[k][0], pts[k][1], bot, top, Math.atan2(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]), w]); } } }
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(Pp, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('ruv', new THREE.Float32BufferAttribute(Rr, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('ruv', new THREE.Float32BufferAttribute(Rr, 3)); g.setAttribute('rj', new THREE.Float32BufferAttribute(new Float32Array(Rr.length / 3 * 2).fill(1e4), 2));
   const rm = new THREE.Mesh(g, MAT.road); rm.receiveShadow = true; rm.castShadow = true; world.add(rm);
-  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(Sp, 3)); sg.setAttribute('normal', new THREE.Float32BufferAttribute(Sn, 3)); sg.setAttribute('ruv', new THREE.Float32BufferAttribute(Sr, 3));
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(Sp, 3)); sg.setAttribute('normal', new THREE.Float32BufferAttribute(Sn, 3)); sg.setAttribute('ruv', new THREE.Float32BufferAttribute(Sr, 3)); sg.setAttribute('rj', new THREE.Float32BufferAttribute(new Float32Array(Sr.length / 3 * 2).fill(1e4), 2));
   const sm = new THREE.Mesh(sg, MAT.side); sm.receiveShadow = true; world.add(sm);
   const bg = new THREE.BoxGeometry(1, 1, 1); bg.translate(0, .5, 0);
   const pm = new THREE.InstancedMesh(bg, new THREE.MeshStandardMaterial({ color: 0xbab8b2, roughness: .9 }), Math.max(1, piers.length)); const o = new THREE.Object3D();
@@ -542,7 +570,7 @@ function collide(x, z, r, yFeet, hgt) { let hit = false, nx = 0, nz = 0;
   return { x, z, hit, nx, nz }; }
 function insideBuilding(x, z, y) { const l = colGrid.get(ckey(Math.floor(x / CS), Math.floor(z / CS))); if (!l) return false; for (const id of l) { if (COL.top[id] < y || COL.base[id] > y) continue; const b = COL.box[id]; if (x < b[0] || x > b[1] || z < b[2] || z > b[3]) continue; if (pipRing(x, z, COL.rings[id])) return true; } return false; }
 const BS = 30; const brGrid = new Map();
-function surfaceAt(x, z, yRef) { let s = -50; if (isLand(x, z)) s = groundAt(x, z) + 0.28;
+function surfaceAt(x, z, yRef) { let s = -50; if (isLand(x, z)) s = groundAt(x, z) + 0.28 - (onRoad(x, z) ? KERB : 0);
   const l = brGrid.get(ckey(Math.floor(x / BS), Math.floor(z / BS)));
   if (l) for (const sg of l) { const ex = sg.x1 - sg.x0, ez = sg.z1 - sg.z0; const L2 = ex * ex + ez * ez || 1; const t = ((x - sg.x0) * ex + (z - sg.z0) * ez) / L2; if (t < -0.02 || t > 1.02) continue;
     const px = sg.x0 + ex * t, pz = sg.z0 + ez * t; if ((x - px) * (x - px) + (z - pz) * (z - pz) > sg.hw * sg.hw) continue; const dy = sg.y0 + (sg.y1 - sg.y0) * clamp(t, 0, 1) + 0.08; if (yRef > dy - 3.2 && dy > s) s = dy; }
